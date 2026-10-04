@@ -86,6 +86,13 @@ function normalize(raw, fallbackType) {
   };
 }
 
+// TMDB no traduce algunos géneros de series al español.
+const GENRE_ES = {
+  'Action & Adventure': 'Acción y aventura', 'Sci-Fi & Fantasy': 'Ciencia ficción y fantasía',
+  'War & Politics': 'Bélica y política', Kids: 'Infantil', News: 'Noticias', Soap: 'Telenovela', Talk: 'Entrevistas',
+};
+const genreNames = (d, max) => (d.genres || []).slice(0, max).map((g) => GENRE_ES[g.name] || g.name).join(', ');
+
 const year = (item) => item.date?.slice(0, 4) || '';
 const kindLabel = (item) => (item.media_type === 'tv' ? 'Serie' : 'Película');
 
@@ -345,7 +352,7 @@ async function loadHeroExtras(item) {
     const d = await client.details(item.media_type, item.id);
     const el = $('#hero-extra');
     if (!el || pool[0] !== item) return;
-    const parts = [durationText(d), (d.genres || []).slice(0, 3).map((g) => g.name).join(', ')].filter(Boolean);
+    const parts = [durationText(d), genreNames(d, 3)].filter(Boolean);
     el.textContent = parts.length ? ` · ${parts.join(' · ')}` : '';
     const trailer = trailerUrl(d);
     if (trailer) {
@@ -413,7 +420,7 @@ function providersHTML(av) {
 function detailHTML(item, d, av) {
   const backdrop = img(d.backdrop_path, 'w1280');
   const trailer = trailerUrl(d);
-  const genres = (d.genres || []).map((g) => g.name).join(', ');
+  const genres = genreNames(d);
   const meta = [kindLabel(item), year(item), durationText(d), genres].filter(Boolean).join(' · ');
   const original = item.original_title && item.original_title !== item.title
     ? `<p class="original">${esc(item.original_title)}</p>` : '';
