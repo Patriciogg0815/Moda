@@ -24,6 +24,7 @@ body {
   color: var(--text);
   font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
+  padding-bottom: var(--ad-h, 0px); /* espacio para el banner de publicidad */
 }
 
 a { color: var(--accent); }
@@ -193,7 +194,9 @@ select {
 
 /* ---------- Diálogos ---------- */
 dialog.sheet {
-  width: min(900px, calc(100vw - 24px)); max-height: calc(100vh - 32px);
+  /* --ad-h: alto del banner de publicidad (lo define js/ads.js; 0 en el navegador) */
+  bottom: var(--ad-h, 0px);
+  width: min(900px, calc(100vw - 24px)); max-height: calc(100vh - 32px - var(--ad-h, 0px));
   padding: 0; border: 1px solid var(--border); border-radius: 16px;
   background: var(--surface); color: var(--text); overflow: auto;
 }
@@ -257,7 +260,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .7); }
 .more-btn { display: flex; margin: 0 auto; }
 .footer { color: var(--muted); font-size: .8rem; text-align: center; padding: 24px 16px 40px; border-top: 1px solid var(--border); }
 .toast {
-  position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px);
+  position: fixed; left: 50%; bottom: calc(24px + var(--ad-h, 0px)); transform: translate(-50%, 20px);
   background: var(--text); color: var(--bg); padding: .6em 1.2em; border-radius: 999px;
   font-weight: 600; opacity: 0; pointer-events: none; transition: .25s; z-index: 100;
   max-width: calc(100vw - 32px); text-align: center;

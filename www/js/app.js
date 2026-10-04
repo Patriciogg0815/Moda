@@ -1,4 +1,5 @@
 import { createClient, img } from './tmdb.js';
+import { initAds } from './ads.js';
 import { classifyAvailability, ratingTone, shuffle } from './availability.js';
 import {
   state, save, itemKey, language, languageFor, toggleIn, inWatchlist, toggleWatchlist, COUNTRIES,
@@ -698,6 +699,7 @@ function bindAndroidBack() {
 
 bindEvents();
 bindAndroidBack();
+initAds();
 initClient().then(() => {
   if (!state.apiKey) openSettings();
 });

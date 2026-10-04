@@ -70,6 +70,22 @@ En Windows, la forma más simple de compilar es abrir la carpeta `android/` con 
 
 Las versiones nuevas se firman con la llave del proyecto (`android/app/moda-debug.keystore`). Así se instalan encima de la anterior sin perder tus datos. Esa llave sirve para instalar la app a mano, no para publicarla en Google Play.
 
+## 💰 Publicidad (AdMob)
+
+La app Android muestra anuncios de AdMob (en el navegador no aparecen). Igual que en Convertir.ec:
+
+- Un **banner** fijo abajo. El contenido deja espacio para que el banner no lo tape.
+- Un **intersticial** (anuncio a pantalla completa) al tocar cualquier botón o enlace, como máximo **uno cada 45 segundos**. No aparece dentro de ⚙️ Configuración.
+
+**Importante:** por ahora usa los **IDs de prueba de Google**, que muestran anuncios de ejemplo y **no generan ingresos**. Para ganar dinero:
+
+1. En [admob.google.com](https://admob.google.com) → **Apps → Agregar app** → Android → "No está publicada en Google Play" → nombre **QuéVeo**.
+2. Copia el **ID de la app** (`ca-app-pub-…~…`) y pégalo en `android/app/src/main/res/values/strings.xml` (`admob_app_id`).
+3. Crea dos bloques de anuncios, **Banner** e **Intersticial**, y pega sus IDs (`ca-app-pub-…/…`) en [`www/js/ads.js`](www/js/ads.js).
+4. Vuelve a compilar el APK.
+
+No uses los IDs de Convertir.ec: cada bloque de anuncios pertenece a una sola app, y mezclarlos puede hacer que AdMob limite o suspenda la cuenta.
+
 ## Cómo decide "plataforma" o "cine"
 
 La lógica está en [`www/js/availability.js`](www/js/availability.js):
@@ -89,6 +105,7 @@ www/js/app.js             Lógica de la interfaz (incluye el botón "atrás" de 
 www/js/tmdb.js            Cliente de la API de TMDB
 www/js/availability.js    Reglas de disponibilidad (plataforma / alquiler / cine)
 www/js/storage.js         Preferencias y listas guardadas en el dispositivo
+www/js/ads.js             Publicidad AdMob (banner + intersticial)
 android/                  Proyecto Android (Capacitor)
 scripts/descargar-en-pc.ps1  Descarga/actualiza el proyecto en C:\pelis
 test/                     Tests (node --test)
