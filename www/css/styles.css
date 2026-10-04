@@ -88,12 +88,6 @@ main { max-width: 1200px; margin: 0 auto; padding: 0 16px 32px; }
 .section-title { font-size: 1.2rem; margin: 24px 0 12px; }
 
 /* ---------- Bienvenida ---------- */
-.setup {
-  max-width: 640px; margin: 32px auto; padding: 24px;
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-}
-.setup h1 { margin-bottom: 12px; }
-.setup li { margin: 6px 0; }
 
 /* ---------- Filtros ---------- */
 .filters {
@@ -228,7 +222,11 @@ dialog::backdrop { background: rgba(0, 0, 0, .7); }
 .link { font-weight: 600; }
 
 /* ---------- Configuración ---------- */
-#settings-form { padding: 24px; display: grid; gap: 16px; }
+#settings-form, .sheet-form { padding: 24px; display: grid; gap: 16px; }
+.sheet-form h2, .sheet-form p { margin: 0; }
+.providers-filter {
+  width: 100%; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: .55em .7em;
+}
 .field { display: grid; gap: 6px; font-weight: 600; }
 .field input, .field select {
   margin: 0; width: 100%; font-weight: 400; background: var(--surface-2);
@@ -319,3 +317,5 @@ dialog::backdrop { background: rgba(0, 0, 0, .7); }
 .rec-toolbar label { display: grid; gap: 4px; font-size: .75rem; color: var(--muted); min-width: 0; }
 .rec-toolbar select { margin: 0; width: 100%; min-width: 0; color: var(--text); padding: .45em .4em; }
 .rec-options .more-btn { margin-top: 16px; }
+.rec-toolbar .rec-mine { grid-column: 1 / -1; display: flex; font-size: .85rem; color: var(--text); }
+#platforms .providers-grid { max-height: 50vh; }

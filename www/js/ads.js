@@ -57,9 +57,9 @@ export function initAds() {
   };
 
   // Cualquier toque en un botón o enlace puede mostrar el intersticial, menos dentro
-  // de Configuración y del tutorial (para no interrumpir mientras se aprende a usarla).
+  // de Configuración, del tutorial y de los avisos (para no interrumpir mientras se aprende a usarla).
   document.addEventListener('click', (e) => {
     const target = e.target.closest?.('a, button');
-    if (target && !target.closest('#settings, #tutorial')) showInterstitial();
+    if (target && !target.closest('#settings, #tutorial, #platforms')) showInterstitial();
   }, true);
 }

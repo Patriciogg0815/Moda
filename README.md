@@ -44,17 +44,17 @@ Para **actualizar** más adelante: clic derecho en `C:\pelis\scripts\descargar-e
 2. En el celular abre **Archivos → Descargas → QueVeo.apk**.
 3. Android pedirá permiso para **instalar apps desconocidas** de esa aplicación: actívalo.
 4. Si aparece *Google Play Protect* ("app no reconocida"), toca **Más detalles → Instalar de todas formas**. Es normal en apps que no vienen de Play Store.
-5. Abre **QuéVeo**, entra a **⚙️ Configuración**, pega tu **API Key de TMDB**, elige tu país y tus plataformas.
+5. Abre **QuéVeo**. No hay que configurar nada: la API key de TMDB ya viene incluida. Si quieres, en **⚙️** cambia el país o marca tus plataformas (también se marcan al tocar **"Solo en mis plataformas"**).
 
-> La API key, tus plataformas y tus listas se guardan solo en el celular.
+> Tus plataformas y tus listas se guardan solo en el celular.
 >
 > ¿Ya tenías instalada la versión anterior llamada **Moda**? Instala `QueVeo.apk` encima: se actualiza, cambia de nombre y conservas tu configuración.
 
 Requisitos: Android 7.0 o superior, con conexión a internet.
 
-### ¿Dónde consigo la API key?
+### API key de TMDB
 
-Crea una cuenta gratis en [themoviedb.org](https://www.themoviedb.org/signup) y entra a [Ajustes → API](https://www.themoviedb.org/settings/api). Copia la **API Key** (la de 32 caracteres).
+La app trae una API key de TMDB incluida, definida en [`www/js/storage.js`](www/js/storage.js) (`TMDB_KEY`). Para cambiarla, reemplázala ahí y vuelve a compilar el APK.
 
 ## 🛠️ Para desarrolladores
 

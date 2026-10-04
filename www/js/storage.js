@@ -2,6 +2,9 @@
 
 const KEY = 'moda.v1';
 
+// API key de TMDB incluida en la app (el usuario ya no tiene que ingresarla).
+export const TMDB_KEY = 'd38933f8d1484a8e572354ca6cf8c205';
+
 const COUNTRIES = {
   AR: 'Argentina', BO: 'Bolivia', CL: 'Chile', CO: 'Colombia', CR: 'Costa Rica',
   DO: 'Rep. Dominicana', EC: 'Ecuador', ES: 'España', GT: 'Guatemala', HN: 'Honduras',
@@ -18,7 +21,6 @@ function defaultCountry() {
 }
 
 const defaults = () => ({
-  apiKey: '',
   country: defaultCountry(),
   myProviders: [],    // ids de plataformas que tiene el usuario
   watchlist: [],      // [{id, media_type, title, poster_path, vote_average, date}]
@@ -33,6 +35,7 @@ function load() {
     const raw = localStorage.getItem(KEY);
     if (!raw) return defaults();
     const saved = JSON.parse(raw);
+    delete saved.apiKey; // versiones anteriores guardaban la key del usuario
     return { ...defaults(), ...saved, filters: { ...defaults().filters, ...saved.filters } };
   } catch {
     return defaults();

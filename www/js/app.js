@@ -2,7 +2,7 @@ import { createClient, img } from './tmdb.js';
 import { initAds } from './ads.js';
 import { classifyAvailability, ratingTone, shuffle } from './availability.js';
 import {
-  state, save, itemKey, language, languageFor, toggleIn, inWatchlist, toggleWatchlist, COUNTRIES,
+  state, save, itemKey, language, languageFor, toggleIn, inWatchlist, toggleWatchlist, COUNTRIES, TMDB_KEY,
 } from './storage.js';
 
 // Estados de ánimo → géneros de TMDB por tipo ("|" = cualquiera de ellos).
@@ -48,7 +48,7 @@ const TUTORIAL = [
   { icon: '😂', title: '2. Elige un género (opcional)',
     text: 'Toca uno, como <b>Comedia</b>, <b>Adrenalina</b> o <b>Miedo</b>. Tócalo otra vez para quitarlo. Si no eliges ninguno, te recomiendo de todo.' },
   { icon: '📅', title: '3. Ajusta si quieres (opcional)',
-    text: 'Elige la <b>calificación mínima</b>, el <b>año de estreno</b> y si quieres <b>solo títulos de tus plataformas</b> (tus plataformas se eligen en ⚙️).' },
+    text: 'Elige la <b>calificación mínima</b>, el <b>año de estreno</b> y si quieres <b>solo títulos de tus plataformas</b> (al tocarla te muestro las plataformas para marcar las tuyas).' },
   { icon: '🎲', title: '4. Toca «¡Recomiéndame algo!»',
     text: 'Es el <b>botón amarillo</b>. Te muestro un título destacado y <b>muchas opciones más</b>, que puedes filtrar por <b>año</b> y <b>calificación</b> u ordenar. ¿No te convence? Toca <b>🎲 Otra</b>. Toca un póster para ver el resumen, el tráiler y <b>dónde verla</b>.' },
   { icon: '🔎', title: '¿Ya sabes qué buscas?',
@@ -421,13 +421,20 @@ function recToolbarHTML() {
     <label>📅 Año<select data-rec="year">${opts(YEARS, f.year)}</select></label>
     <label>⭐ Calificación<select data-rec="minRating">${opts(RATINGS, f.minRating)}</select></label>
     <label>↕ Ordenar<select data-rec="sort">${opts(SORTS, f.sort)}</select></label>
+    <label class="switch rec-mine"><input type="checkbox" data-rec="onlyMine"${f.onlyMine && state.myProviders.length ? ' checked' : ''}>
+      <span>📺 Solo en mis plataformas</span></label>
   </div>`;
 }
 
 async function onRecToolbarChange(e) {
-  const sel = e.target.closest('select[data-rec]');
+  const sel = e.target.closest('[data-rec]');
   if (!sel) return;
   const field = sel.dataset.rec;
+  if (field === 'onlyMine') {
+    setOnlyMine(sel.checked);
+    $('.rec-options')?.scrollIntoView({ block: 'start' });
+    return;
+  }
   if (field === 'sort') {
     state.filters.sort = sel.value;
     save();
@@ -589,15 +596,54 @@ function renderFilters() {
   $('#year').value = YEARS.some((y) => y.id === f.year) ? f.year : 'any';
   const hasMine = state.myProviders.length > 0;
   $('#only-mine').checked = f.onlyMine && hasMine;
-  $('#only-mine').disabled = !hasMine;
-  $('#only-mine-hint').textContent = hasMine ? `${state.myProviders.length} plataforma(s) elegida(s)` : 'Elige tus plataformas en ⚙️';
+  $('#only-mine-hint').innerHTML = hasMine
+    ? `${state.myProviders.length} plataforma(s) elegida(s) · <button type="button" class="link" data-pick-providers>cambiar</button>`
+    : 'Aún no eliges tus plataformas · <button type="button" class="link" data-pick-providers>elegirlas</button>';
+}
+
+// "Solo en mis plataformas": si todavía no eligió plataformas, se muestran para elegirlas.
+function setOnlyMine(on) {
+  if (on && !state.myProviders.length) {
+    renderFilters(); // desmarca la casilla hasta que elija plataformas
+    $$('[data-rec="onlyMine"]').forEach((c) => { c.checked = false; });
+    openPlatforms(true);
+    return;
+  }
+  setFilter({ onlyMine: on });
+}
+
+// Selector rápido de plataformas.
+let platformsEnableOnlyMine = false;
+
+function openPlatforms(enableOnlyMine = false) {
+  platformsEnableOnlyMine = enableOnlyMine;
+  $('#platforms .providers-filter').value = '';
+  $('#platforms').showModal();
+  renderProviderChoices($('#platforms-grid'), state.country, new Set(state.myProviders));
+}
+
+function savePlatforms(e) {
+  e.preventDefault();
+  state.myProviders = [...$('#platforms-grid').selected];
+  const hasMine = state.myProviders.length > 0;
+  const turnedOn = hasMine && (platformsEnableOnlyMine || state.filters.onlyMine);
+  state.filters.onlyMine = turnedOn;
+  save();
+  $('#platforms').close();
+  renderFilters();
+  availCache.clear(); // los logos "✓ tuyas" dependen de tus plataformas
+  if (turnedOn) toast(`Listo: solo verás títulos de tus ${state.myProviders.length} plataforma(s)`);
+  else toast(hasMine ? 'Plataformas guardadas' : 'No marcaste ninguna plataforma');
+  if (turnedOn || pool.length) recommend();
 }
 
 function setFilter(patch) {
   Object.assign(state.filters, patch);
   save();
   renderFilters();
-  nudgeRecommend();
+  // Si ya hay una recomendación en pantalla, se actualiza sola con el nuevo filtro.
+  if (pool.length) recommend();
+  else nudgeRecommend();
 }
 
 // Después de elegir un filtro, indica el siguiente paso: tocar el botón amarillo.
@@ -645,71 +691,46 @@ function tutorialNext() {
 
 // ---------- Configuración ----------
 
-let draftProviders = new Set();
-
 function openSettings() {
-  $('#api-key').value = state.apiKey;
   $('#country').value = state.country;
   $('#settings-error').textContent = '';
-  $('#providers-filter').value = '';
-  draftProviders = new Set(state.myProviders);
+  $('#settings .providers-filter').value = '';
   $('#settings').showModal();
-  if (state.apiKey) loadProviderChoices();
-  else $('#providers-grid').innerHTML = '<p class="hint">Ingresa tu API key y toca "Cargar plataformas".</p>';
+  renderProviderChoices($('#providers-grid'), state.country, new Set(state.myProviders));
 }
 
-async function loadProviderChoices() {
-  const key = $('#api-key').value.trim();
-  const country = $('#country').value;
-  const grid = $('#providers-grid');
-  const err = $('#settings-error');
-  err.textContent = '';
-  if (!key) {
-    grid.innerHTML = '<p class="hint">Ingresa tu API key y toca "Cargar plataformas".</p>';
-    return;
-  }
+/** Muestra las plataformas del país para marcarlas; lo marcado queda en grid.selected. */
+async function renderProviderChoices(grid, country, selected) {
+  grid.selected = selected;
+  const err = grid.id === 'providers-grid' ? $('#settings-error') : null;
+  if (err) err.textContent = '';
   grid.innerHTML = '<p class="hint">Cargando plataformas…</p>';
   try {
-    const c = createClient({ key, language: languageFor(country), region: country });
+    const c = createClient({ key: TMDB_KEY, language: languageFor(country), region: country });
     const [m, t] = await Promise.all([c.providers('movie'), c.providers('tv')]);
+    if (grid.selected !== selected) return; // se volvió a abrir mientras cargaba
     const byId = new Map();
     [...m, ...t].forEach((p) => { if (!byId.has(p.provider_id)) byId.set(p.provider_id, p); });
     grid.innerHTML = [...byId.values()].map((p) => `
       <label class="pchoice" data-name="${esc(p.provider_name.toLowerCase())}">
-        <input type="checkbox" value="${p.provider_id}" ${draftProviders.has(p.provider_id) ? 'checked' : ''}>
+        <input type="checkbox" value="${p.provider_id}" ${selected.has(p.provider_id) ? 'checked' : ''}>
         <img src="${img(p.logo_path, 'w92')}" alt="" loading="lazy">
         <span>${esc(p.provider_name)}</span>
       </label>`).join('') || '<p class="hint">No hay plataformas para este país.</p>';
   } catch (e) {
-    grid.innerHTML = '';
-    err.textContent = errorText(e);
+    grid.innerHTML = `<p class="status error">${esc(errorText(e))}</p>`;
   }
 }
 
 async function saveSettings(e) {
   e.preventDefault();
-  const key = $('#api-key').value.trim();
-  const country = $('#country').value;
-  const err = $('#settings-error');
-  if (!key) {
-    err.textContent = 'Necesitas una API key de TMDB para continuar.';
-    return;
-  }
-  try {
-    await createClient({ key, language: languageFor(country), region: country }).validate();
-  } catch (ex) {
-    err.textContent = errorText(ex);
-    return;
-  }
-  state.apiKey = key;
-  state.country = country;
-  state.myProviders = [...draftProviders];
+  state.country = $('#country').value;
+  state.myProviders = [...$('#providers-grid').selected];
   if (!state.myProviders.length) state.filters.onlyMine = false;
   save();
   $('#settings').close();
   toast('Configuración guardada');
   await initClient();
-  if (!state.tutorialSeen) openTutorial();
 }
 
 // ---------- Inicio ----------
@@ -718,20 +739,11 @@ async function initClient() {
   availCache.clear();
   Object.values(lists).forEach((l) => l.reset());
   searchList.reset();
-  $('#country-label').textContent = state.apiKey ? `${state.country}` : 'Configurar';
+  $('#country-label').textContent = state.country;
   $$('[data-country-name]').forEach((el) => { el.textContent = countryName(); });
   renderFilters();
 
-  const ready = Boolean(state.apiKey);
-  $('#setup').hidden = ready;
-  $('.tabs').hidden = !ready;
-  $$('.tab').forEach((s) => { s.hidden = !ready; });
-  if (!ready) {
-    client = null;
-    return;
-  }
-
-  client = createClient({ key: state.apiKey, language: language(), region: state.country });
+  client = createClient({ key: TMDB_KEY, language: language(), region: state.country });
   try {
     const pages = await Promise.all([client.nowPlaying(1), client.nowPlaying(2)]);
     nowPlayingIds = new Set(pages.flatMap((d) => d.results.map((r) => r.id)));
@@ -747,6 +759,7 @@ function bindEvents() {
   document.addEventListener('click', (e) => {
     if (e.target.closest('[data-open-settings], #open-settings')) return openSettings();
     if (e.target.closest('[data-open-help], #open-help')) return openTutorial();
+    if (e.target.closest('[data-pick-providers]')) return openPlatforms();
     const closeBtn = e.target.closest('[data-close]');
     if (closeBtn) return closeBtn.closest('dialog').close();
 
@@ -797,7 +810,7 @@ function bindEvents() {
   $('#min-rating').addEventListener('change', (e) => setFilter({ minRating: Number(e.target.value) }));
   $('#year').innerHTML = YEARS.map((y) => `<option value="${y.id}">${y.label}</option>`).join('');
   $('#year').addEventListener('change', (e) => setFilter({ year: e.target.value }));
-  $('#only-mine').addEventListener('change', (e) => setFilter({ onlyMine: e.target.checked }));
+  $('#only-mine').addEventListener('change', (e) => setOnlyMine(e.target.checked));
 
   let searchTimer;
   $('#search-input').addEventListener('input', (e) => {
@@ -814,19 +827,20 @@ function bindEvents() {
     .sort((a, b) => a[1].localeCompare(b[1], 'es'))
     .map(([code, name]) => `<option value="${code}">${name}</option>`).join('');
   $('#settings-form').addEventListener('submit', saveSettings);
-  $('#load-providers').addEventListener('click', loadProviderChoices);
-  $('#country').addEventListener('change', () => {
-    if ($('#api-key').value.trim()) loadProviderChoices();
-  });
-  $('#providers-grid').addEventListener('change', (e) => {
+  $('#country').addEventListener('change', (e) =>
+    renderProviderChoices($('#providers-grid'), e.target.value, $('#providers-grid').selected));
+  $('#platforms-form').addEventListener('submit', savePlatforms);
+  // Casillas de plataformas (en Configuración y en el selector rápido).
+  $$('.providers-grid').forEach((grid) => grid.addEventListener('change', (e) => {
     const id = Number(e.target.value);
-    if (e.target.checked) draftProviders.add(id);
-    else draftProviders.delete(id);
-  });
-  $('#providers-filter').addEventListener('input', (e) => {
-    const q = e.target.value.trim().toLowerCase();
-    $$('.pchoice').forEach((el) => { el.hidden = q && !el.dataset.name.includes(q); });
-  });
+    if (e.target.checked) grid.selected.add(id);
+    else grid.selected.delete(id);
+  }));
+  $$('.providers-filter').forEach((input) => input.addEventListener('input', () => {
+    const q = input.value.trim().toLowerCase();
+    $$('.pchoice', $(`#${input.dataset.filterFor}`)).forEach((el) => { el.hidden = q && !el.dataset.name.includes(q); });
+  }));
+
   // Tutorial
   $('#tutorial-next').addEventListener('click', tutorialNext);
   $('#tutorial-prev').addEventListener('click', () => {
@@ -872,6 +886,5 @@ measureTopbar();
 window.addEventListener('resize', measureTopbar);
 initAds();
 initClient().then(() => {
-  if (!state.apiKey) openSettings();
-  else if (!state.tutorialSeen) openTutorial();
+  if (!state.tutorialSeen) openTutorial();
 });
