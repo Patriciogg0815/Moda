@@ -1,0 +1,12 @@
+{
+  "name": "moda",
+  "version": "0.1.0",
+  "description": "Recomendador de películas y series: qué ver, dónde verlo (plataforma o cine), con póster, resumen y calificación.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "python3 -m http.server 5173",
+    "test": "node --test"
+  },
+  "license": "MIT"
+}

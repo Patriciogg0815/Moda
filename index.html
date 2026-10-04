@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Moda · ¿Qué veo hoy?</title>
+  <meta name="description" content="Recomendador de películas y series: te dice qué ver y en qué plataforma (o si está en cines).">
+  <meta name="theme-color" content="#0b1220">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍿</text></svg>">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">🍿</span>
+      <div>
+        <strong>Moda</strong>
+        <small>¿Qué veo hoy?</small>
+      </div>
+    </div>
+    <button class="ghost" id="open-settings" type="button" aria-label="Configuración">
+      <span id="country-label">—</span> ⚙️
+    </button>
+  </header>
+
+  <nav class="tabs" aria-label="Secciones">
+    <button type="button" data-tab="recomienda" class="active">🎲 Recomiéndame</button>
+    <button type="button" data-tab="tendencias">🔥 Tendencias</button>
+    <button type="button" data-tab="cines">🎬 En cines</button>
+    <button type="button" data-tab="buscar">🔎 Buscar</button>
+    <button type="button" data-tab="lista">♥ Mi lista</button>
+  </nav>
+
+  <main>
+    <!-- Sin API key -->
+    <section id="setup" class="setup" hidden>
+      <h1>Bienvenido 👋</h1>
+      <p>Moda te recomienda películas y series, te muestra su póster, resumen y calificación, y te dice en qué plataforma verla en tu país (o si está en cines).</p>
+      <p>Para obtener los datos usa la API gratuita de <a href="https://www.themoviedb.org/" target="_blank" rel="noopener">TMDB</a>. Solo necesitas configurarla una vez:</p>
+      <ol>
+        <li>Crea una cuenta gratis en <a href="https://www.themoviedb.org/signup" target="_blank" rel="noopener">themoviedb.org</a>.</li>
+        <li>Ve a <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">Ajustes → API</a> y copia tu <em>API Key</em> o tu <em>token de lectura</em>.</li>
+        <li>Pégala en Configuración junto con tu país y tus plataformas.</li>
+      </ol>
+      <button type="button" class="primary" data-open-settings>Configurar ahora</button>
+    </section>
+
+    <!-- Recomiéndame -->
+    <section id="tab-recomienda" class="tab active">
+      <div class="filters">
+        <div class="filter-row">
+          <span class="filter-label">Quiero ver</span>
+          <div class="segmented" role="radiogroup" aria-label="Tipo">
+            <button type="button" data-type="all">Lo que sea</button>
+            <button type="button" data-type="movie">Película</button>
+            <button type="button" data-type="tv">Serie</button>
+          </div>
+        </div>
+        <div class="filter-row">
+          <span class="filter-label">Tengo ganas de</span>
+          <div class="chips" id="moods"></div>
+        </div>
+        <div class="filter-row inline">
+          <label>Calificación mínima
+            <select id="min-rating">
+              <option value="0">Cualquiera</option>
+              <option value="6">★ 6+</option>
+              <option value="7">★ 7+</option>
+              <option value="8">★ 8+</option>
+            </select>
+          </label>
+          <label class="switch">
+            <input type="checkbox" id="only-mine">
+            <span>Solo en mis plataformas</span>
+          </label>
+          <small class="hint" id="only-mine-hint"></small>
+        </div>
+        <button type="button" class="primary cta" id="recommend-btn">🎲 ¡Recomiéndame algo!</button>
+      </div>
+      <div id="rec-result"></div>
+    </section>
+
+    <!-- Tendencias -->
+    <section id="tab-tendencias" class="tab">
+      <h2 class="section-title">Lo más visto esta semana</h2>
+      <div class="grid"></div>
+      <p class="status"></p>
+      <button type="button" class="ghost more-btn" hidden>Cargar más</button>
+    </section>
+
+    <!-- En cines -->
+    <section id="tab-cines" class="tab">
+      <h2 class="section-title">En cartelera en <span data-country-name></span></h2>
+      <div class="grid"></div>
+      <p class="status"></p>
+      <button type="button" class="ghost more-btn" hidden>Cargar más</button>
+    </section>
+
+    <!-- Buscar -->
+    <section id="tab-buscar" class="tab">
+      <input type="search" id="search-input" class="search" placeholder="Busca una película o serie…" autocomplete="off">
+      <div class="grid"></div>
+      <p class="status"></p>
+      <button type="button" class="ghost more-btn" hidden>Cargar más</button>
+    </section>
+
+    <!-- Mi lista -->
+    <section id="tab-lista" class="tab">
+      <h2 class="section-title">Mi lista</h2>
+      <div class="grid"></div>
+      <p class="status"></p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>Datos e imágenes de <a href="https://www.themoviedb.org/" target="_blank" rel="noopener">TMDB</a>. Disponibilidad en plataformas por <a href="https://www.justwatch.com/" target="_blank" rel="noopener">JustWatch</a>.
+      Este producto usa la API de TMDB pero no está avalado ni certificado por TMDB.</p>
+  </footer>
+
+  <!-- Detalle -->
+  <dialog id="detail" class="sheet">
+    <button type="button" class="close" data-close aria-label="Cerrar">✕</button>
+    <div id="detail-body"></div>
+  </dialog>
+
+  <!-- Configuración -->
+  <dialog id="settings" class="sheet narrow">
+    <button type="button" class="close" data-close aria-label="Cerrar">✕</button>
+    <form id="settings-form">
+      <h2>Configuración</h2>
+      <label class="field">API key de TMDB
+        <input type="password" id="api-key" autocomplete="off" spellcheck="false" placeholder="API Key (v3) o token de lectura (v4)">
+        <small class="hint">Gratis en <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a>. Se guarda solo en este navegador.</small>
+      </label>
+      <label class="field">País
+        <select id="country"></select>
+      </label>
+      <div class="field">
+        <div class="field-head">
+          <span>Mis plataformas</span>
+          <button type="button" class="ghost small" id="load-providers">Cargar plataformas</button>
+        </div>
+        <input type="search" id="providers-filter" placeholder="Filtrar plataformas…" autocomplete="off">
+        <div id="providers-grid" class="providers-grid"></div>
+      </div>
+      <p class="error" id="settings-error" role="alert"></p>
+      <div class="form-actions">
+        <button type="button" class="ghost small" id="reset-lists">Olvidar vistas y descartadas</button>
+        <button type="submit" class="primary">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
