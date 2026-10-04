@@ -18,9 +18,12 @@
         <small>Te recomiendo qué ver</small>
       </div>
     </div>
-    <button class="ghost" id="open-settings" type="button" aria-label="Configuración">
-      <span id="country-label">—</span> ⚙️
-    </button>
+    <div class="top-actions">
+      <button class="ghost" id="open-help" type="button" aria-label="Cómo usar QuéVeo">❓</button>
+      <button class="ghost" id="open-settings" type="button" aria-label="Configuración">
+        <span id="country-label">—</span> ⚙️
+      </button>
+    </div>
   </header>
 
   <nav class="tabs" aria-label="Secciones">
@@ -48,8 +51,9 @@
     <!-- Recomiéndame -->
     <section id="tab-recomienda" class="tab active">
       <div class="filters">
+        <p class="filters-intro">Elige lo que quieras y toca el botón amarillo. <button type="button" class="link" data-open-help>¿Cómo funciona?</button></p>
         <div class="filter-row">
-          <span class="filter-label">Quiero ver</span>
+          <span class="filter-label"><span class="step">1</span> Quiero ver</span>
           <div class="segmented" role="radiogroup" aria-label="Tipo">
             <button type="button" data-type="all">Lo que sea</button>
             <button type="button" data-type="movie">Película</button>
@@ -57,9 +61,10 @@
           </div>
         </div>
         <div class="filter-row">
-          <span class="filter-label">Tengo ganas de</span>
+          <span class="filter-label"><span class="step">2</span> Género <em>(opcional)</em></span>
           <div class="chips" id="moods"></div>
         </div>
+        <span class="filter-label"><span class="step">3</span> Ajustes <em>(opcional)</em></span>
         <div class="filter-row inline">
           <label>Calificación mínima
             <select id="min-rating">
@@ -69,12 +74,16 @@
               <option value="8">★ 8+</option>
             </select>
           </label>
+          <label>Año de estreno
+            <select id="year"></select>
+          </label>
           <label class="switch">
             <input type="checkbox" id="only-mine">
             <span>Solo en mis plataformas</span>
           </label>
           <small class="hint" id="only-mine-hint"></small>
         </div>
+        <span class="filter-label"><span class="step">4</span> Toca para ver tu recomendación</span>
         <button type="button" class="primary cta" id="recommend-btn">🎲 ¡Recomiéndame algo!</button>
       </div>
       <div id="rec-result"></div>
@@ -99,6 +108,7 @@
     <!-- Buscar -->
     <section id="tab-buscar" class="tab">
       <input type="search" id="search-input" class="search" placeholder="Busca una película o serie…" autocomplete="off">
+      <p class="hint search-hint">Escribe el nombre (al menos 2 letras), por ejemplo <em>Shrek</em> o <em>The Office</em>. Toca un póster para ver el resumen y dónde verla.</p>
       <div class="grid"></div>
       <p class="status"></p>
       <button type="button" class="ghost more-btn" hidden>Cargar más</button>
@@ -149,6 +159,21 @@
         <button type="submit" class="primary">Guardar</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- Tutorial -->
+  <dialog id="tutorial" class="sheet narrow tutorial" aria-labelledby="tutorial-title">
+    <button type="button" class="close" data-close aria-label="Cerrar">✕</button>
+    <div class="tutorial-body">
+      <div class="tutorial-icon" id="tutorial-icon" aria-hidden="true"></div>
+      <h2 id="tutorial-title"></h2>
+      <p id="tutorial-text"></p>
+      <div class="tutorial-dots" id="tutorial-dots" aria-hidden="true"></div>
+      <div class="tutorial-actions">
+        <button type="button" class="ghost" id="tutorial-prev">Anterior</button>
+        <button type="button" class="primary" id="tutorial-next">Siguiente</button>
+      </div>
+    </div>
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>

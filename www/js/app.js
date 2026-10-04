@@ -8,7 +8,7 @@ import {
 // Estados de ánimo → géneros de TMDB por tipo ("|" = cualquiera de ellos).
 // null = no hay un género equivalente para ese tipo.
 const MOODS = [
-  { id: 'reir', label: '😂 Reír', movie: '35', tv: '35' },
+  { id: 'reir', label: '😂 Comedia', movie: '35', tv: '35' },
   { id: 'adrenalina', label: '💥 Adrenalina', movie: '28|53|12', tv: '10759' },
   { id: 'intriga', label: '🕵️ Intriga', movie: '9648|80', tv: '9648|80' },
   { id: 'miedo', label: '😱 Miedo', movie: '27', tv: null },
@@ -17,6 +17,35 @@ const MOODS = [
   { id: 'mundos', label: '🚀 Otros mundos', movie: '878|14', tv: '10765' },
   { id: 'familia', label: '👨‍👩‍👧 En familia', movie: '10751|16', tv: '10751|10762' },
   { id: 'real', label: '📚 Historias reales', movie: '99|36', tv: '99' },
+];
+
+// Filtro por año de estreno (en series: año del primer episodio).
+const THIS_YEAR = new Date().getFullYear();
+const YEARS = [
+  { id: 'any', label: 'Cualquiera' },
+  { id: 'this', label: `Este año (${THIS_YEAR})`, from: THIS_YEAR },
+  { id: 'last3', label: `Últimos 3 años (${THIS_YEAR - 2}+)`, from: THIS_YEAR - 2 },
+  { id: '2020', label: '2020 en adelante', from: 2020 },
+  { id: '2010', label: '2010 – 2019', from: 2010, to: 2019 },
+  { id: '2000', label: '2000 – 2009', from: 2000, to: 2009 },
+  { id: '1990', label: '1990 – 1999', from: 1990, to: 1999 },
+  { id: 'old', label: 'Antes de 1990', to: 1989 },
+];
+
+// Tutorial de bienvenida (se abre la primera vez y con el botón ❓).
+const TUTORIAL = [
+  { icon: '👋', title: 'Bienvenido a QuéVeo',
+    text: 'Te ayudo a decidir qué ver en <b>4 pasos</b>. Te tomará unos segundos.' },
+  { icon: '🎬', title: '1. Elige qué quieres ver',
+    text: 'Toca <b>Película</b>, <b>Serie</b> o <b>Lo que sea</b>.' },
+  { icon: '😂', title: '2. Elige un género (opcional)',
+    text: 'Toca uno, como <b>Comedia</b>, <b>Adrenalina</b> o <b>Miedo</b>. Tócalo otra vez para quitarlo. Si no eliges ninguno, te recomiendo de todo.' },
+  { icon: '📅', title: '3. Ajusta si quieres (opcional)',
+    text: 'Elige la <b>calificación mínima</b>, el <b>año de estreno</b> y si quieres <b>solo títulos de tus plataformas</b> (tus plataformas se eligen en ⚙️).' },
+  { icon: '🎲', title: '4. Toca «¡Recomiéndame algo!»',
+    text: 'Es el <b>botón amarillo</b>. Te muestro un título destacado y 8 opciones más. ¿No te convence? Toca <b>🎲 Otra</b>. Toca un póster para ver el resumen, el tráiler y <b>dónde verla</b>.' },
+  { icon: '🔎', title: '¿Ya sabes qué buscas?',
+    text: 'Ve a la pestaña <b>🔎 Buscar</b> y escribe el nombre. En cada título puedes tocar <b>♥</b> para guardarlo en Mi lista, <b>✓</b> si ya la viste o <b>✕</b> si no te interesa.' },
 ];
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -272,13 +301,14 @@ async function fetchCandidates() {
   const f = state.filters;
   const mood = MOODS.find((m) => m.id === f.mood);
   const types = (f.type === 'all' ? ['movie', 'tv'] : [f.type]).filter((t) => !mood || mood[t]);
-  if (!types.length) throw new Error('Ese estado de ánimo solo aplica a películas. Prueba con "Película" o "Lo que sea".');
+  if (!types.length) throw new Error('Ese género solo aplica a películas. Prueba con "Película" o "Lo que sea".');
 
   const providers = f.onlyMine && state.myProviders.length ? state.myProviders : undefined;
   const excluded = new Set([...state.seen, ...state.dismissed]);
 
   const batches = await Promise.all(types.map(async (t) => {
-    const opts = { genres: mood?.[t], providers, minRating: f.minRating };
+    const years = YEARS.find((y) => y.id === f.year);
+    const opts = { genres: mood?.[t], providers, minRating: f.minRating, years };
     const first = await client.discover(t, { ...opts, page: 1 });
     const maxPage = Math.min(first.total_pages || 1, 10);
     const page = 1 + Math.floor(Math.random() * maxPage);
@@ -490,6 +520,7 @@ function renderFilters() {
     `<button type="button" class="chip${f.mood === m.id ? ' active' : ''}" data-mood="${m.id}">${m.label}</button>`).join('');
   $$('[data-type]').forEach((b) => b.classList.toggle('active', b.dataset.type === f.type));
   $('#min-rating').value = String(f.minRating);
+  $('#year').value = YEARS.some((y) => y.id === f.year) ? f.year : 'any';
   const hasMine = state.myProviders.length > 0;
   $('#only-mine').checked = f.onlyMine && hasMine;
   $('#only-mine').disabled = !hasMine;
@@ -500,6 +531,50 @@ function setFilter(patch) {
   Object.assign(state.filters, patch);
   save();
   renderFilters();
+  nudgeRecommend();
+}
+
+// Después de elegir un filtro, indica el siguiente paso: tocar el botón amarillo.
+function nudgeRecommend() {
+  const btn = $('#recommend-btn');
+  btn.classList.remove('pulse');
+  void btn.offsetWidth; // reinicia la animación
+  btn.classList.add('pulse');
+  btn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  if (!$('#rec-result').children.length) toast('Ahora toca 🎲 ¡Recomiéndame algo!');
+}
+
+// ---------- Tutorial ----------
+
+let tutorialStep = 0;
+
+function openTutorial() {
+  tutorialStep = 0;
+  renderTutorial();
+  const dlg = $('#tutorial');
+  if (!dlg.open) dlg.showModal();
+}
+
+function renderTutorial() {
+  const step = TUTORIAL[tutorialStep];
+  const last = tutorialStep === TUTORIAL.length - 1;
+  $('#tutorial-icon').textContent = step.icon;
+  $('#tutorial-title').textContent = step.title;
+  $('#tutorial-text').innerHTML = step.text;
+  $('#tutorial-dots').innerHTML = TUTORIAL.map((_, i) => `<span class="${i === tutorialStep ? 'on' : ''}"></span>`).join('');
+  $('#tutorial-prev').hidden = tutorialStep === 0;
+  $('#tutorial-next').textContent = last ? '¡Empezar!' : 'Siguiente';
+}
+
+function tutorialNext() {
+  if (tutorialStep < TUTORIAL.length - 1) {
+    tutorialStep++;
+    renderTutorial();
+    return;
+  }
+  $('#tutorial').close();
+  showTab('recomienda');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ---------- Configuración ----------
@@ -568,6 +643,7 @@ async function saveSettings(e) {
   $('#settings').close();
   toast('Configuración guardada');
   await initClient();
+  if (!state.tutorialSeen) openTutorial();
 }
 
 // ---------- Inicio ----------
@@ -604,6 +680,7 @@ async function initClient() {
 function bindEvents() {
   document.addEventListener('click', (e) => {
     if (e.target.closest('[data-open-settings], #open-settings')) return openSettings();
+    if (e.target.closest('[data-open-help], #open-help')) return openTutorial();
     const closeBtn = e.target.closest('[data-close]');
     if (closeBtn) return closeBtn.closest('dialog').close();
 
@@ -647,6 +724,8 @@ function bindEvents() {
 
   $('#recommend-btn').addEventListener('click', recommend);
   $('#min-rating').addEventListener('change', (e) => setFilter({ minRating: Number(e.target.value) }));
+  $('#year').innerHTML = YEARS.map((y) => `<option value="${y.id}">${y.label}</option>`).join('');
+  $('#year').addEventListener('change', (e) => setFilter({ year: e.target.value }));
   $('#only-mine').addEventListener('change', (e) => setFilter({ onlyMine: e.target.checked }));
 
   let searchTimer;
@@ -677,6 +756,20 @@ function bindEvents() {
     const q = e.target.value.trim().toLowerCase();
     $$('.pchoice').forEach((el) => { el.hidden = q && !el.dataset.name.includes(q); });
   });
+  // Tutorial
+  $('#tutorial-next').addEventListener('click', tutorialNext);
+  $('#tutorial-prev').addEventListener('click', () => {
+    tutorialStep = Math.max(0, tutorialStep - 1);
+    renderTutorial();
+  });
+  // Se marca como visto al cerrarlo de cualquier forma (✕, atrás, ¡Empezar!).
+  $('#tutorial').addEventListener('close', () => {
+    if (!state.tutorialSeen) {
+      state.tutorialSeen = true;
+      save();
+    }
+  });
+
   $('#reset-lists').addEventListener('click', () => {
     state.seen = [];
     state.dismissed = [];
@@ -702,4 +795,5 @@ bindAndroidBack();
 initAds();
 initClient().then(() => {
   if (!state.apiKey) openSettings();
+  else if (!state.tutorialSeen) openTutorial();
 });

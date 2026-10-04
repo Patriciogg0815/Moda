@@ -12,11 +12,13 @@
 
 | Sección | Qué hace |
 | --- | --- |
-| 🎲 **Recomiéndame** | Eliges película o serie, tu estado de ánimo (reír, adrenalina, intriga, miedo…), la calificación mínima y si quieres **solo títulos de tus plataformas**. Te propone uno destacado y otras 8 opciones; con **"Otra"** pasas a la siguiente. |
+| 🎲 **Recomiéndame** | En 4 pasos numerados: eliges película o serie, un género (comedia, adrenalina, intriga, miedo…), la calificación mínima, el **año de estreno** y si quieres **solo títulos de tus plataformas**. Te propone uno destacado y otras 8 opciones; con **"Otra"** pasas a la siguiente. |
 | 🔥 **Tendencias** | Lo más visto de la semana. |
 | 🎬 **En cines** | Lo que está en cartelera en tu país. |
 | 🔎 **Buscar** | Busca cualquier película o serie y mira dónde verla. |
 | ♥ **Mi lista** | Lo que guardaste para ver después. |
+
+La primera vez se abre un **tutorial** corto que explica cómo elegir y buscar; se puede volver a ver con el botón **❓** de arriba.
 
 Con **✓ Ya la vi** y **✕ No me interesa** el título deja de aparecer en las recomendaciones. Al tocar un póster se abre el detalle: duración o temporadas, géneros, tráiler, y dónde verla, separado en suscripción, alquiler y compra.
 

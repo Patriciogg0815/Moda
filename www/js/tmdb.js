@@ -78,7 +78,7 @@ export function createClient({ key, language, region }) {
      * @param {number} [f.minRating]
      * @param {number} [f.page]
      */
-    discover(type, { genres, providers, minRating = 0, page = 1 } = {}) {
+    discover(type, { genres, providers, minRating = 0, years, page = 1 } = {}) {
       const params = {
         sort_by: 'popularity.desc',
         include_adult: false,
@@ -87,8 +87,15 @@ export function createClient({ key, language, region }) {
         'vote_average.gte': minRating || undefined,
         'vote_count.gte': type === 'movie' ? 150 : 80,
       };
-      if (type === 'movie') params['primary_release_date.lte'] = today;
-      else params['first_air_date.lte'] = today;
+      // Fecha de estreno (películas) o del primer episodio (series), dentro del rango de años.
+      const dateField = type === 'movie' ? 'primary_release_date' : 'first_air_date';
+      const to = years?.to ? `${years.to}-12-31` : today;
+      params[`${dateField}.lte`] = to < today ? to : today;
+      if (years?.from) {
+        params[`${dateField}.gte`] = `${years.from}-01-01`;
+        // Los estrenos recientes todavía tienen pocos votos.
+        if (years.from >= new Date().getFullYear() - 1) params['vote_count.gte'] = 20;
+      }
       if (providers?.length) {
         params.with_watch_providers = providers.join('|');
         params.watch_region = region;

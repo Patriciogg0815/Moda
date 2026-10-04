@@ -56,10 +56,10 @@ export function initAds() {
     AdMob.showInterstitial().catch(prepareInter);
   };
 
-  // Cualquier toque en un botón o enlace puede mostrar el intersticial,
-  // menos dentro de Configuración (para no interrumpir mientras se escribe la API key).
+  // Cualquier toque en un botón o enlace puede mostrar el intersticial, menos dentro
+  // de Configuración y del tutorial (para no interrumpir mientras se aprende a usarla).
   document.addEventListener('click', (e) => {
     const target = e.target.closest?.('a, button');
-    if (target && !target.closest('#settings')) showInterstitial();
+    if (target && !target.closest('#settings, #tutorial')) showInterstitial();
   }, true);
 }

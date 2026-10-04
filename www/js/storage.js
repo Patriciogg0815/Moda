@@ -24,13 +24,16 @@ const defaults = () => ({
   watchlist: [],      // [{id, media_type, title, poster_path, vote_average, date}]
   seen: [],           // claves "movie:123" vistas
   dismissed: [],      // claves "tv:456" descartadas
-  filters: { type: 'all', mood: null, minRating: 6, onlyMine: false },
+  filters: { type: 'all', mood: null, minRating: 6, year: 'any', onlyMine: false },
+  tutorialSeen: false, // ya vio el tutorial de bienvenida
 });
 
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? { ...defaults(), ...JSON.parse(raw) } : defaults();
+    if (!raw) return defaults();
+    const saved = JSON.parse(raw);
+    return { ...defaults(), ...saved, filters: { ...defaults().filters, ...saved.filters } };
   } catch {
     return defaults();
   }
