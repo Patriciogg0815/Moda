@@ -1,13 +1,14 @@
 // Publicidad AdMob (solo dentro de la app Android; en el navegador no hace nada).
 // Banner fijo abajo + intersticial (pantalla completa) al tocar botones o enlaces.
 
-// IDs de los bloques de anuncios. Ahora son los IDs de PRUEBA oficiales de Google:
-// muestran anuncios de ejemplo y no generan ingresos. Para ganar dinero, crea la app
-// "QuéVeo" en https://admob.google.com y reemplázalos por los tuyos. El ID de la app
-// (el que tiene "~") va en android/app/src/main/res/values/strings.xml.
+// Bloques de anuncios de la app "QueVeo" en AdMob. El ID de la app (el que tiene "~")
+// va en android/app/src/main/res/values/strings.xml.
+// Para probar sin generar clics inválidos usa los IDs de prueba de Google:
+//   banner 'ca-app-pub-3940256099942544/9214589741'
+//   intersticial 'ca-app-pub-3940256099942544/1033173712'
 const ADMOB = {
-  banner: 'ca-app-pub-3940256099942544/9214589741',
-  interstitial: 'ca-app-pub-3940256099942544/1033173712',
+  banner: 'ca-app-pub-6398797687169342/2056059870',
+  interstitial: 'ca-app-pub-6398797687169342/2048321010',
 };
 
 // Tiempo mínimo entre dos intersticiales. Mostrar uno en cada toque hace que la

@@ -77,14 +77,17 @@ La app Android muestra anuncios de AdMob (en el navegador no aparecen). Igual qu
 - Un **banner** fijo abajo. El contenido deja espacio para que el banner no lo tape.
 - Un **intersticial** (anuncio a pantalla completa) al tocar cualquier botón o enlace, como máximo **uno cada 45 segundos**. No aparece dentro de ⚙️ Configuración.
 
-**Importante:** por ahora usa los **IDs de prueba de Google**, que muestran anuncios de ejemplo y **no generan ingresos**. Para ganar dinero:
+Usa los bloques de la app **QueVeo** en AdMob:
 
-1. En [admob.google.com](https://admob.google.com) → **Apps → Agregar app** → Android → "No está publicada en Google Play" → nombre **QuéVeo**.
-2. Copia el **ID de la app** (`ca-app-pub-…~…`) y pégalo en `android/app/src/main/res/values/strings.xml` (`admob_app_id`).
-3. Crea dos bloques de anuncios, **Banner** e **Intersticial**, y pega sus IDs (`ca-app-pub-…/…`) en [`www/js/ads.js`](www/js/ads.js).
-4. Vuelve a compilar el APK.
+| Qué | ID | Dónde está |
+| --- | --- | --- |
+| App | `ca-app-pub-6398797687169342~5987566028` | `android/app/src/main/res/values/strings.xml` |
+| Banner | `ca-app-pub-6398797687169342/2056059870` | [`www/js/ads.js`](www/js/ads.js) |
+| Intersticial | `ca-app-pub-6398797687169342/2048321010` | [`www/js/ads.js`](www/js/ads.js) |
 
-No uses los IDs de Convertir.ec: cada bloque de anuncios pertenece a una sola app, y mezclarlos puede hacer que AdMob limite o suspenda la cuenta.
+> ⚠️ No toques tus propios anuncios en tu celular: AdMob lo cuenta como clic inválido y puede suspender la cuenta. En el emulador no hay problema, porque AdMob lo trata como dispositivo de prueba.
+
+Si cambias un ID, vuelve a compilar el APK.
 
 ## Cómo decide "plataforma" o "cine"
 

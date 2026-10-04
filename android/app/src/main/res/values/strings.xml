@@ -4,6 +4,6 @@
     <string name="title_activity_main">QuéVeo</string>
     <string name="package_name">app.moda.queveo</string>
     <string name="custom_url_scheme">app.moda.queveo</string>
-    <!-- ID de PRUEBA de Google. Reemplázalo por el ID de tu app QuéVeo en AdMob (el que tiene "~"). -->
-    <string name="admob_app_id" translatable="false">ca-app-pub-3940256099942544~3347511713</string>
+    <!-- ID de la app QueVeo en AdMob (el de prueba de Google es ca-app-pub-3940256099942544~3347511713) -->
+    <string name="admob_app_id" translatable="false">ca-app-pub-6398797687169342~5987566028</string>
 </resources>
