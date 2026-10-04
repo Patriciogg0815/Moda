@@ -256,7 +256,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .7); }
 .status { color: var(--muted); text-align: center; margin: 24px 0; }
 .status.error { color: #fca5a5; }
 .more-btn { display: flex; margin: 0 auto; }
-.footer { color: var(--muted); font-size: .8rem; text-align: center; padding: 24px 16px 40px; border-top: 1px solid var(--border); }
+.credits { margin: 0; padding-top: 12px; border-top: 1px solid var(--border); color: var(--muted); font-size: .72rem; text-align: center; }
 .toast {
   position: fixed; left: 50%; bottom: calc(24px + var(--ad-h, 0px)); transform: translate(-50%, 20px);
   background: var(--text); color: var(--bg); padding: .6em 1.2em; border-radius: 999px;

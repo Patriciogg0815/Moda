@@ -131,3 +131,4 @@ npm test
 ---
 
 Datos e imágenes de [TMDB](https://www.themoviedb.org/). Disponibilidad en plataformas por [JustWatch](https://www.justwatch.com/). Este producto usa la API de TMDB pero no está avalado ni certificado por TMDB.
+En la app, este aviso está al final de ⚙️ Configuración (lo exigen los términos de uso de la API de TMDB).
