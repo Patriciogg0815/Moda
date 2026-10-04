@@ -12,7 +12,7 @@
 
 | Sección | Qué hace |
 | --- | --- |
-| 🎲 **Recomiéndame** | En 4 pasos numerados: eliges película o serie, un género (comedia, adrenalina, intriga, miedo…), la calificación mínima, el **año de estreno** y si quieres **solo títulos de tus plataformas**. Te propone uno destacado y otras 8 opciones; con **"Otra"** pasas a la siguiente. |
+| 🎲 **Recomiéndame** | En 4 pasos numerados: eliges película o serie, un género (comedia, adrenalina, intriga, miedo…), la calificación mínima, el **año de estreno** y si quieres **solo títulos de tus plataformas**. Te propone uno destacado y **muchas opciones más** (de 20 en 20, con "Ver más opciones"). Sobre las opciones hay una barra fija para **filtrar por año y calificación** y **ordenarlas** (al azar, mejor nota, recientes o antiguas). Con **"Otra"** pasas a la siguiente. |
 | 🔥 **Tendencias** | Lo más visto de la semana. |
 | 🎬 **En cines** | Lo que está en cartelera en tu país. |
 | 🔎 **Buscar** | Busca cualquier película o serie y mira dónde verla. |

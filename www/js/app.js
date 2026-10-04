@@ -32,6 +32,13 @@ const YEARS = [
   { id: 'old', label: 'Antes de 1990', to: 1989 },
 ];
 
+const RATINGS = [
+  { id: 0, label: 'Cualquiera' },
+  { id: 6, label: '★ 6+' },
+  { id: 7, label: '★ 7+' },
+  { id: 8, label: '★ 8+' },
+];
+
 // Tutorial de bienvenida (se abre la primera vez y con el botón ❓).
 const TUTORIAL = [
   { icon: '👋', title: 'Bienvenido a QuéVeo',
@@ -43,7 +50,7 @@ const TUTORIAL = [
   { icon: '📅', title: '3. Ajusta si quieres (opcional)',
     text: 'Elige la <b>calificación mínima</b>, el <b>año de estreno</b> y si quieres <b>solo títulos de tus plataformas</b> (tus plataformas se eligen en ⚙️).' },
   { icon: '🎲', title: '4. Toca «¡Recomiéndame algo!»',
-    text: 'Es el <b>botón amarillo</b>. Te muestro un título destacado y 8 opciones más. ¿No te convence? Toca <b>🎲 Otra</b>. Toca un póster para ver el resumen, el tráiler y <b>dónde verla</b>.' },
+    text: 'Es el <b>botón amarillo</b>. Te muestro un título destacado y <b>muchas opciones más</b>, que puedes filtrar por <b>año</b> y <b>calificación</b> u ordenar. ¿No te convence? Toca <b>🎲 Otra</b>. Toca un póster para ver el resumen, el tráiler y <b>dónde verla</b>.' },
   { icon: '🔎', title: '¿Ya sabes qué buscas?',
     text: 'Ve a la pestaña <b>🔎 Buscar</b> y escribe el nombre. En cada título puedes tocar <b>♥</b> para guardarlo en Mi lista, <b>✓</b> si ya la viste o <b>✕</b> si no te interesa.' },
 ];
@@ -311,9 +318,10 @@ async function fetchCandidates() {
     const opts = { genres: mood?.[t], providers, minRating: f.minRating, years };
     const first = await client.discover(t, { ...opts, page: 1 });
     const maxPage = Math.min(first.total_pages || 1, 10);
-    const page = 1 + Math.floor(Math.random() * maxPage);
-    const results = page === 1 ? first.results : [...(await client.discover(t, { ...opts, page })).results, ...first.results];
-    return results.map((r) => normalize(r, t));
+    // Además de la primera página, hasta dos páginas al azar para tener variedad.
+    const pages = shuffle(Array.from({ length: maxPage - 1 }, (_, i) => i + 2)).slice(0, 2);
+    const more = await Promise.all(pages.map((page) => client.discover(t, { ...opts, page })));
+    return [...more.flatMap((d) => d.results), ...first.results].map((r) => normalize(r, t));
   }));
 
   const seen = new Set();
@@ -334,6 +342,7 @@ async function recommend() {
   out.innerHTML = '<p class="status">Buscando algo para ti…</p>';
   try {
     pool = await fetchCandidates();
+    shownOptions = OPTIONS_PAGE;
     renderRecommendation();
   } catch (e) {
     out.innerHTML = `<p class="status error">${esc(errorText(e))}</p>`;
@@ -367,15 +376,72 @@ function heroHTML(item) {
 function renderRecommendation() {
   const out = $('#rec-result');
   if (!pool.length) {
-    out.innerHTML = '<p class="status">No encontramos nada con esos filtros. Prueba bajar la calificación mínima, cambiar el ánimo o desactivar "Solo en mis plataformas".</p>';
+    out.innerHTML = '<p class="status">No encontramos nada con esos filtros. Prueba bajar la calificación mínima, cambiar el año o el género, o desactivar "Solo en mis plataformas".</p>';
     return;
   }
   const [hero, ...rest] = pool;
-  const others = rest.slice(0, 8);
-  out.innerHTML = heroHTML(hero) +
-    (others.length ? `<h2 class="section-title">Otras opciones</h2><div class="grid">${others.map(cardHTML).join('')}</div>` : '');
+  const sorted = sortOptions(rest);
+  const others = sorted.slice(0, shownOptions);
+  out.innerHTML = heroHTML(hero) + `
+    <div class="rec-options">
+      <h2 class="section-title">Más opciones <small>(${rest.length})</small></h2>
+      ${recToolbarHTML()}
+      ${others.length ? `<div class="grid">${others.map(cardHTML).join('')}</div>` : '<p class="status">No hay más opciones con estos filtros.</p>'}
+      ${sorted.length > shownOptions ? `<button type="button" class="ghost more-btn" data-action="more-options">Ver más opciones (${sorted.length - shownOptions})</button>` : ''}
+    </div>`;
   [hero, ...others].forEach(fillAvailability);
   loadHeroExtras(hero);
+}
+
+const OPTIONS_PAGE = 20;     // opciones que se muestran de una vez
+let shownOptions = OPTIONS_PAGE;
+
+const SORTS = [
+  { id: 'random', label: 'Al azar' },
+  { id: 'rating', label: 'Mejor nota' },
+  { id: 'recent', label: 'Recientes' },
+  { id: 'oldest', label: 'Antiguas' },
+];
+
+function sortOptions(items) {
+  const list = [...items];
+  const sort = state.filters.sort;
+  if (sort === 'rating') list.sort((a, b) => b.vote_average - a.vote_average);
+  else if (sort === 'recent') list.sort((a, b) => b.date.localeCompare(a.date));
+  else if (sort === 'oldest') list.sort((a, b) => a.date.localeCompare(b.date));
+  return list;
+}
+
+// Barra para filtrar las opciones por año y calificación (vuelve a buscar) u ordenarlas.
+function recToolbarHTML() {
+  const f = state.filters;
+  const opts = (list, current) => list.map((o) =>
+    `<option value="${o.id}"${String(o.id) === String(current) ? ' selected' : ''}>${o.label}</option>`).join('');
+  return `<div class="rec-toolbar">
+    <label>📅 Año<select data-rec="year">${opts(YEARS, f.year)}</select></label>
+    <label>⭐ Calificación<select data-rec="minRating">${opts(RATINGS, f.minRating)}</select></label>
+    <label>↕ Ordenar<select data-rec="sort">${opts(SORTS, f.sort)}</select></label>
+  </div>`;
+}
+
+async function onRecToolbarChange(e) {
+  const sel = e.target.closest('select[data-rec]');
+  if (!sel) return;
+  const field = sel.dataset.rec;
+  if (field === 'sort') {
+    state.filters.sort = sel.value;
+    save();
+    shownOptions = OPTIONS_PAGE;
+    renderRecommendation();
+    $('.rec-options')?.scrollIntoView({ block: 'start' });
+    return;
+  }
+  // Año y calificación cambian la búsqueda: se piden nuevos títulos a TMDB.
+  state.filters[field] = field === 'minRating' ? Number(sel.value) : sel.value;
+  save();
+  renderFilters();
+  await recommend();
+  $('.rec-options')?.scrollIntoView({ block: 'start' });
 }
 
 async function loadHeroExtras(item) {
@@ -699,6 +765,10 @@ function bindEvents() {
     const item = holder && registry.get(holder.dataset.key);
     const action = btn.dataset.action;
     if (action === 'reroll') return reroll();
+    if (action === 'more-options') {
+      shownOptions += OPTIONS_PAGE;
+      return renderRecommendation();
+    }
     if (!item) return;
 
     if (action === 'open') {
@@ -723,6 +793,7 @@ function bindEvents() {
   $$('dialog').forEach((dlg) => dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); }));
 
   $('#recommend-btn').addEventListener('click', recommend);
+  $('#rec-result').addEventListener('change', onRecToolbarChange);
   $('#min-rating').addEventListener('change', (e) => setFilter({ minRating: Number(e.target.value) }));
   $('#year').innerHTML = YEARS.map((y) => `<option value="${y.id}">${y.label}</option>`).join('');
   $('#year').addEventListener('change', (e) => setFilter({ year: e.target.value }));
@@ -790,8 +861,15 @@ function bindAndroidBack() {
   });
 }
 
+// Alto del encabezado fijo, para que la barra de opciones quede justo debajo.
+function measureTopbar() {
+  document.documentElement.style.setProperty('--topbar-h', `${$('.topbar').offsetHeight}px`);
+}
+
 bindEvents();
 bindAndroidBack();
+measureTopbar();
+window.addEventListener('resize', measureTopbar);
 initAds();
 initClient().then(() => {
   if (!state.apiKey) openSettings();

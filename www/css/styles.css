@@ -306,3 +306,16 @@ dialog::backdrop { background: rgba(0, 0, 0, .7); }
 .tutorial-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
 .tutorial-dots span.on { background: var(--accent); }
 .tutorial-actions { display: flex; gap: 10px; justify-content: center; margin-top: 4px; }
+
+/* ---------- Barra de opciones de la recomendación ---------- */
+.rec-options .section-title small { color: var(--muted); font-weight: 400; font-size: .9rem; }
+.rec-options { scroll-margin-top: var(--topbar-h, 76px); }
+/* La barra queda fija bajo el encabezado mientras se recorren las opciones. */
+.rec-toolbar {
+  position: sticky; top: var(--topbar-h, 76px); z-index: 5;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;
+  margin: -4px 0 14px; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+}
+.rec-toolbar label { display: grid; gap: 4px; font-size: .75rem; color: var(--muted); min-width: 0; }
+.rec-toolbar select { margin: 0; width: 100%; min-width: 0; color: var(--text); padding: .45em .4em; }
+.rec-options .more-btn { margin-top: 16px; }

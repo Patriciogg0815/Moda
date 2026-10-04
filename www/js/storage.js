@@ -24,7 +24,7 @@ const defaults = () => ({
   watchlist: [],      // [{id, media_type, title, poster_path, vote_average, date}]
   seen: [],           // claves "movie:123" vistas
   dismissed: [],      // claves "tv:456" descartadas
-  filters: { type: 'all', mood: null, minRating: 6, year: 'any', onlyMine: false },
+  filters: { type: 'all', mood: null, minRating: 6, year: 'any', sort: 'random', onlyMine: false },
   tutorialSeen: false, // ya vio el tutorial de bienvenida
 });
 
