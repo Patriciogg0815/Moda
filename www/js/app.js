@@ -684,7 +684,20 @@ function bindEvents() {
   });
 }
 
+// Botón "atrás" de Android (solo existe dentro de la app nativa).
+function bindAndroidBack() {
+  const nativeApp = window.Capacitor?.Plugins?.App;
+  if (!nativeApp?.addListener) return;
+  nativeApp.addListener('backButton', () => {
+    const open = $$('dialog[open]').pop();
+    if (open) open.close();
+    else if (currentTab !== 'recomienda') showTab('recomienda');
+    else nativeApp.exitApp();
+  });
+}
+
 bindEvents();
+bindAndroidBack();
 initClient().then(() => {
   if (!state.apiKey) openSettings();
 });

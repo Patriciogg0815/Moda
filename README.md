@@ -1,6 +1,6 @@
 # 🍿 Moda · ¿Qué veo hoy?
 
-Una app web que te **recomienda qué película o serie ver** cuando tienes tantas plataformas que no sabes por dónde empezar. Al estilo de [JustWatch](https://www.justwatch.com/), cada título muestra:
+Una app para **Android** que te **recomienda qué película o serie ver** cuando tienes tantas plataformas que no sabes por dónde empezar. Al estilo de [JustWatch](https://www.justwatch.com/), cada título muestra:
 
 - 🖼️ **Póster** e imagen de fondo
 - 📝 **Resumen** breve
@@ -20,27 +20,57 @@ Una app web que te **recomienda qué película o serie ver** cuando tienes tanta
 
 Con **✓ Ya la vi** y **✕ No me interesa** el título deja de aparecer en las recomendaciones. Al tocar un póster se abre el detalle: duración o temporadas, géneros, tráiler, y dónde verla, separado en suscripción, alquiler y compra.
 
-## Cómo usarla
+## 📱 Instalar en Android
 
-La app no necesita servidor propio ni dependencias: es HTML, CSS y JavaScript que corre en el navegador. Los datos vienen de la **API gratuita de [TMDB](https://www.themoviedb.org/)**. TMDB obtiene la información de disponibilidad de JustWatch.
+La app para Android ya viene compilada en **[`apk/Moda.apk`](apk/Moda.apk)**.
 
-1. **Consigue una API key gratis**: crea una cuenta en [themoviedb.org](https://www.themoviedb.org/signup), entra a [Ajustes → API](https://www.themoviedb.org/settings/api) y copia tu *API Key* (v3) o tu *token de lectura* (v4).
-2. **Abre la app** con cualquier servidor estático:
-   ```bash
-   npm start            # o: python3 -m http.server 5173
-   ```
-   y entra a <http://localhost:5173>.
-3. En **⚙️ Configuración** pega tu API key, elige tu **país** y marca **tus plataformas**.
+### 1. Guardarla en tu PC (C:\Moda)
 
-> La API key, tus plataformas y tus listas se guardan solo en tu navegador (localStorage), no en ningún servidor.
+Abre **PowerShell** en Windows (tecla Windows → escribe `PowerShell` → Enter) y pega:
 
-### Publicarla gratis con GitHub Pages
+```powershell
+$u="https://github.com/Patriciogg0815/Moda/archive/refs/heads/claude/movie-series-recommender-app-unh84n.zip"; $z="$env:TEMP\moda.zip"; $t="$env:TEMP\moda-descarga"; Invoke-WebRequest $u -OutFile $z -UseBasicParsing; Expand-Archive $z $t -Force; New-Item -ItemType Directory -Force C:\Moda | Out-Null; Copy-Item "$t\*\*" C:\Moda -Recurse -Force; Remove-Item $z,$t -Recurse -Force; explorer C:\Moda\apk
+```
 
-En el repositorio de GitHub: **Settings → Pages → Build and deployment → Deploy from a branch**, elige `main` y la carpeta `/ (root)`. En un par de minutos queda en `https://<tu-usuario>.github.io/Moda/` y la puedes abrir desde el celular.
+Se crea la carpeta **`C:\Moda`** con todo el proyecto y se abre `C:\Moda\apk`, donde está `Moda.apk`.
+Para **actualizar** más adelante: clic derecho en `C:\Moda\scripts\descargar-en-pc.ps1` → *Ejecutar con PowerShell*.
+
+### 2. Pasarla al celular e instalarla
+
+1. Conecta el celular a la PC con el cable USB (modo *Transferencia de archivos*) y copia `C:\Moda\apk\Moda.apk` a la carpeta **Descargas** del celular.
+   *(También puedes abrir directamente en el celular: <https://github.com/Patriciogg0815/Moda/raw/claude/movie-series-recommender-app-unh84n/apk/Moda.apk>)*
+2. En el celular abre **Archivos → Descargas → Moda.apk**.
+3. Android pedirá permiso para **instalar apps desconocidas** de esa aplicación: actívalo.
+4. Si aparece *Google Play Protect* ("app no reconocida"), toca **Más detalles → Instalar de todas formas**. Es normal en apps que no vienen de Play Store.
+5. Abre **Moda**, entra a **⚙️ Configuración**, pega tu **API Key de TMDB**, elige tu país y tus plataformas.
+
+> La API key, tus plataformas y tus listas se guardan solo en el celular.
+
+Requisitos: Android 7.0 o superior, con conexión a internet.
+
+### ¿Dónde consigo la API key?
+
+Crea una cuenta gratis en [themoviedb.org](https://www.themoviedb.org/signup) y entra a [Ajustes → API](https://www.themoviedb.org/settings/api). Copia la **API Key** (la de 32 caracteres).
+
+## 🛠️ Para desarrolladores
+
+La interfaz es HTML, CSS y JavaScript sin dependencias (carpeta `www/`). [Capacitor](https://capacitorjs.com/) la empaqueta como app nativa de Android (carpeta `android/`). Los datos vienen de la API de [TMDB](https://www.themoviedb.org/), y la disponibilidad en plataformas, de JustWatch.
+
+```bash
+npm install
+npm test               # tests de la lógica
+npm start              # probarla en el navegador: http://localhost:5173
+npm run android:build  # compilar apk/Moda.apk (requiere JDK 21 y Android SDK)
+npm run android:open   # abrir el proyecto en Android Studio
+```
+
+En Windows, la forma más simple de compilar es abrir la carpeta `android/` con **Android Studio** y usar *Build → Build APK(s)*. Antes, ejecuta `npx cap sync android` para copiar los cambios de `www/`.
+
+Las versiones nuevas se firman con la llave del proyecto (`android/app/moda-debug.keystore`). Así se instalan encima de la anterior sin perder tus datos. Esa llave sirve para instalar la app a mano, no para publicarla en Google Play.
 
 ## Cómo decide "plataforma" o "cine"
 
-La lógica está en [`js/availability.js`](js/availability.js):
+La lógica está en [`www/js/availability.js`](www/js/availability.js):
 
 1. Si está incluida en una **suscripción** (o gratis/con anuncios) en tu país → muestra los logos de las plataformas, con las tuyas primero y marcadas con ✓.
 2. Si solo se puede **alquilar o comprar** → "Alquiler / compra".
@@ -50,13 +80,16 @@ La lógica está en [`js/availability.js`](js/availability.js):
 ## Estructura
 
 ```
-index.html            Interfaz
-css/styles.css        Estilos (tema oscuro, responsive)
-js/app.js             Lógica de la interfaz
-js/tmdb.js            Cliente de la API de TMDB
-js/availability.js    Reglas de disponibilidad (plataforma / alquiler / cine)
-js/storage.js         Preferencias y listas en localStorage
-test/                 Tests (node --test)
+apk/Moda.apk              App lista para instalar en Android
+www/index.html            Interfaz
+www/css/styles.css        Estilos (tema oscuro, adaptado a celular)
+www/js/app.js             Lógica de la interfaz (incluye el botón "atrás" de Android)
+www/js/tmdb.js            Cliente de la API de TMDB
+www/js/availability.js    Reglas de disponibilidad (plataforma / alquiler / cine)
+www/js/storage.js         Preferencias y listas guardadas en el dispositivo
+android/                  Proyecto Android (Capacitor)
+scripts/descargar-en-pc.ps1  Descarga/actualiza el proyecto en C:\Moda
+test/                     Tests (node --test)
 ```
 
 ## Tests
@@ -69,7 +102,6 @@ npm test
 
 - Calificaciones de IMDb o Rotten Tomatoes (por ejemplo con la API de OMDb)
 - Recomendaciones basadas en lo que marcaste como visto ("porque viste…")
-- Instalarla como app en el celular (PWA)
 - Filtros por año, duración o idioma
 
 ---

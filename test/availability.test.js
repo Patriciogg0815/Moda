@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { classifyAvailability, isInCinemas, availabilityLabel, ratingTone, shuffle } from '../js/availability.js';
+import { classifyAvailability, isInCinemas, availabilityLabel, ratingTone, shuffle } from '../www/js/availability.js';
 
 const netflix = { provider_id: 8, provider_name: 'Netflix', display_priority: 1 };
 const prime = { provider_id: 119, provider_name: 'Amazon Prime Video', display_priority: 2 };

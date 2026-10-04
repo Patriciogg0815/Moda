@@ -1,0 +1,12 @@
+{
+  "appId": "app.moda.queveo",
+  "appName": "Moda",
+  "webDir": "www",
+  "backgroundColor": "#0b1220",
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "native",
+      "style": "DARK"
+    }
+  }
+}
