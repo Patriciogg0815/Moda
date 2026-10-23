@@ -928,6 +928,13 @@ $script:Xaml = @'
                 HorizontalAlignment="Center" VerticalAlignment="Center"/>
     </DataTemplate>
 
+    <DataTemplate x:Key="DeviceCell">
+      <StackPanel VerticalAlignment="Center">
+        <TextBlock Text="{Binding Devices}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Devices}"/>
+        <TextBlock Text="{Binding Provider}" FontSize="12" Foreground="#5F5F5F" TextTrimming="CharacterEllipsis"/>
+      </StackPanel>
+    </DataTemplate>
+
     <DataTemplate x:Key="StatusCell">
       <TextBlock x:Name="St" Text="{Binding Status}" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="#5F5F5F"/>
       <DataTemplate.Triggers>
@@ -957,7 +964,7 @@ $script:Xaml = @'
       <Setter Property="CanUserResizeRows" Value="False"/>
       <Setter Property="IsReadOnly" Value="True"/>
       <Setter Property="SelectionMode" Value="Single"/>
-      <Setter Property="RowHeight" Value="34"/>
+      <Setter Property="RowHeight" Value="46"/>
     </Style>
     <Style TargetType="DataGridColumnHeader">
       <Setter Property="Background" Value="White"/>
@@ -1009,10 +1016,10 @@ $script:Xaml = @'
               Margin="0,0,14,0" VerticalAlignment="Center" Visibility="Collapsed" ToolTip="Volver al inicio">
         <TextBlock Style="{StaticResource Icon}" Text="&#xE72B;" FontSize="16"/>
       </Button>
-      <StackPanel Grid.Column="1" VerticalAlignment="Center">
+      <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
         <TextBlock x:Name="TxtTitle" Text="Respaldo de Drivers" FontSize="26" FontWeight="SemiBold"
                    FontFamily="Segoe UI Variable Display, Segoe UI"/>
-        <TextBlock x:Name="TxtSubtitle" Foreground="{StaticResource TextSecondary}" Margin="0,2,0,0"
+        <TextBlock x:Name="TxtSubtitle" Foreground="{StaticResource TextSecondary}" Margin="0,2,0,0" TextWrapping="Wrap"
                    Text="Guarda los drivers de tu equipo y vuelve a instalarlos después de formatear."/>
       </StackPanel>
       <Border Grid.Column="2" Style="{StaticResource Card}" Padding="14,10" VerticalAlignment="Center">
@@ -1201,11 +1208,10 @@ $script:Xaml = @'
             <DataGrid x:Name="BkGrid" ItemsSource="{Binding SelectedItem.Drivers, ElementName=BkCategories}" Margin="8,0,8,8">
               <DataGrid.Columns>
                 <DataGridTemplateColumn Width="40" CellTemplate="{StaticResource CheckCell}"/>
-                <DataGridTextColumn Header="Fabricante" Binding="{Binding Provider}" Width="150" ElementStyle="{StaticResource CellText}"/>
-                <DataGridTextColumn Header="Dispositivo" Binding="{Binding Devices}" Width="*" ElementStyle="{StaticResource CellText}"/>
-                <DataGridTextColumn Header="Driver" Binding="{Binding InfName}" Width="130" ElementStyle="{StaticResource CellText}"/>
-                <DataGridTextColumn Header="Versión" Binding="{Binding Version}" Width="115" ElementStyle="{StaticResource CellText}"/>
-                <DataGridTextColumn Header="Fecha" Binding="{Binding Date}" Width="90" ElementStyle="{StaticResource CellText}"/>
+                <DataGridTemplateColumn Header="Dispositivo y fabricante" Width="*" MinWidth="180" CellTemplate="{StaticResource DeviceCell}"/>
+                <DataGridTextColumn Header="Driver" Binding="{Binding InfName}" Width="125" ElementStyle="{StaticResource CellText}"/>
+                <DataGridTextColumn Header="Versión" Binding="{Binding Version}" Width="110" ElementStyle="{StaticResource CellText}"/>
+                <DataGridTextColumn Header="Fecha" Binding="{Binding Date}" Width="85" ElementStyle="{StaticResource CellText}"/>
                 <DataGridTemplateColumn Header="Estado" Width="90" CellTemplate="{StaticResource StatusCell}"/>
               </DataGrid.Columns>
             </DataGrid>
@@ -1319,10 +1325,9 @@ $script:Xaml = @'
               <DataGrid x:Name="RsGrid" ItemsSource="{Binding SelectedItem.Drivers, ElementName=RsCategories}" Margin="8,0,8,8">
                 <DataGrid.Columns>
                   <DataGridTemplateColumn Width="40" CellTemplate="{StaticResource CheckCell}"/>
-                  <DataGridTextColumn Header="Fabricante" Binding="{Binding Provider}" Width="150" ElementStyle="{StaticResource CellText}"/>
-                  <DataGridTextColumn Header="Dispositivo" Binding="{Binding Devices}" Width="*" ElementStyle="{StaticResource CellText}"/>
-                  <DataGridTextColumn Header="Driver" Binding="{Binding InfName}" Width="130" ElementStyle="{StaticResource CellText}"/>
-                  <DataGridTextColumn Header="Versión" Binding="{Binding Version}" Width="115" ElementStyle="{StaticResource CellText}"/>
+                  <DataGridTemplateColumn Header="Dispositivo y fabricante" Width="*" MinWidth="180" CellTemplate="{StaticResource DeviceCell}"/>
+                  <DataGridTextColumn Header="Driver" Binding="{Binding InfName}" Width="125" ElementStyle="{StaticResource CellText}"/>
+                  <DataGridTextColumn Header="Versión" Binding="{Binding Version}" Width="110" ElementStyle="{StaticResource CellText}"/>
                   <DataGridTemplateColumn Header="Estado" Width="110" CellTemplate="{StaticResource StatusCell}"/>
                 </DataGrid.Columns>
               </DataGrid>
@@ -1528,7 +1533,7 @@ function New-DriverSet([object[]]$Drivers, [string[]]$UncheckedCategories = @())
             $item.InfName = $d.InfName
             $item.Version = $d.Version
             $item.Date = $d.Date
-            $item.Devices = if ($d.Devices.Count) { $d.Devices -join ', ' } else { '—' }
+            $item.Devices = if ($d.Devices.Count) { $d.Devices -join ', ' } else { 'Sin dispositivo asociado' }
             $item.IsChecked = $checked
             $cat.Add($item)
             $d | Add-Member -NotePropertyName UiItem -NotePropertyValue $item -Force
@@ -1707,6 +1712,12 @@ function New-MainWindow {
 
     [xml]$xml = $script:Xaml
     $window = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xml))
+    # En pantallas pequeñas, que la ventana no sea más grande que el escritorio
+    $area = [System.Windows.SystemParameters]::WorkArea
+    $window.MinWidth = [Math]::Min($window.MinWidth, $area.Width)
+    $window.MinHeight = [Math]::Min($window.MinHeight, $area.Height)
+    $window.Width = [Math]::Min($window.Width, $area.Width)
+    $window.Height = [Math]::Min($window.Height, $area.Height)
 
     $g = @{ Window = $window; IsBusy = $false; Backup = $null; BkSet = $null; RsSet = $null; NearBackup = $null; MissingDevices = @() }
     $xamlNs = 'http://schemas.microsoft.com/winfx/2006/xaml'
