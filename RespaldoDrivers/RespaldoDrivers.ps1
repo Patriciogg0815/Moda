@@ -1028,7 +1028,7 @@ $script:Xaml = @'
                    Text="Guarda los drivers de tu equipo y vuelve a instalarlos después de formatear."/>
       </StackPanel>
       <Button x:Name="BtnSupport" Grid.Column="2" Style="{StaticResource SubtleButton}" Padding="14,9" Margin="0,0,12,0"
-              VerticalAlignment="Center" Visibility="Collapsed" ToolTip="Abre la página de Ko-fi en tu navegador">
+              VerticalAlignment="Center" Visibility="Collapsed" ToolTip="Abre la página de apoyo en tu navegador">
         <StackPanel Orientation="Horizontal">
           <TextBlock Style="{StaticResource Icon}" Text="&#xEB52;" Foreground="#FF5E5B" Margin="0,0,8,0"/>
           <TextBlock Text="Apoyar a la app" FontWeight="SemiBold"/>
