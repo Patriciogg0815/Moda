@@ -1699,7 +1699,8 @@ function Start-Restore {
     }
 }
 
-function Show-MainWindow {
+# Crea la ventana con todos sus eventos (sin mostrarla)
+function New-MainWindow {
     Initialize-GuiTypes
     try { [void][RespaldoDrivers.NativeMethods]::SetProcessDPIAware() } catch { }
     [System.Windows.Forms.Application]::EnableVisualStyles()
@@ -1786,6 +1787,11 @@ function Show-MainWindow {
     })
 
     Show-Page 'PageHome'
+    $window
+}
+
+function Show-MainWindow {
+    $window = New-MainWindow
     [void]$window.ShowDialog()
 }
 

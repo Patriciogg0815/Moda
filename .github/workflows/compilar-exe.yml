@@ -1,0 +1,85 @@
+# Compila RespaldoDrivers.exe en Windows.
+# - En cada cambio: prueba la ventana en Windows y deja el .exe y las capturas en "Artifacts".
+# - En la rama main: además publica una versión descargable en "Releases".
+name: Compilar .exe
+
+on:
+  push:
+    paths:
+      - 'RespaldoDrivers/**'
+      - '.github/**'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    env:
+      VERSION: 1.0.${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Probar la interfaz en Windows
+        shell: powershell
+        run: .\.github\scripts\Probar-Interfaz.ps1
+
+      - name: Capturas en el registro
+        if: always()
+        shell: powershell
+        run: |
+          Get-ChildItem capturas\*.jpg -ErrorAction SilentlyContinue | ForEach-Object {
+            $b64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($_.FullName))
+            Write-Host "::group::$($_.Name)"
+            for ($i = 0; $i -lt $b64.Length; $i += 4000) { Write-Host ("B64|{0}|{1}" -f $_.BaseName, $b64.Substring($i, [Math]::Min(4000, $b64.Length - $i))) }
+            Write-Host '::endgroup::'
+          }
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: capturas-de-pantalla
+          path: capturas/*.png
+          if-no-files-found: ignore
+
+      - name: Instalar ps2exe
+        shell: powershell
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module ps2exe -Scope CurrentUser -Force
+
+      - name: Generar RespaldoDrivers.exe
+        shell: powershell
+        run: .\RespaldoDrivers\Crear-EXE.ps1 -Version $env:VERSION -OutputDir dist
+
+      - name: Armar paquete .zip
+        shell: powershell
+        run: |
+          Copy-Item RespaldoDrivers\RespaldoDrivers.ps1, RespaldoDrivers\Iniciar-RespaldoDrivers.bat, README.md -Destination dist
+          Compress-Archive -Path dist\* -DestinationPath RespaldoDrivers.zip -Force
+          Get-ChildItem dist, RespaldoDrivers.zip | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RespaldoDrivers-${{ env.VERSION }}
+          path: dist/
+
+      - name: Publicar versión
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}
+          target_commitish: ${{ github.sha }}
+          name: Respaldo de Drivers ${{ env.VERSION }}
+          body: |
+            **Descarga `RespaldoDrivers.exe`**, cópialo a una USB y ábrelo con doble clic (pide permiso de administrador).
+
+            - `RespaldoDrivers.exe`: la aplicación en un solo archivo.
+            - `RespaldoDrivers.zip`: el .exe más la versión en script (`Iniciar-RespaldoDrivers.bat`) y las instrucciones.
+
+            Como el .exe no está firmado digitalmente, Windows puede mostrar "Windows protegió su PC": elige **Más información → Ejecutar de todas formas**.
+          files: |
+            dist/RespaldoDrivers.exe
+            RespaldoDrivers.zip

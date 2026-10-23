@@ -4,6 +4,16 @@ Aplicación para **guardar todos los drivers de un equipo, organizados por categ
 instalarlos después de formatear**, sin tener que buscarlos uno por uno en internet (muchas veces los
 fabricantes ya no los publican).
 
+## Descargar
+
+- **Versión lista para usar:** en la sección **Releases** del repositorio descarga `RespaldoDrivers.exe`
+  (un solo archivo) o `RespaldoDrivers.zip`. Se publica sola cada vez que se actualiza la rama `main`.
+- **Versión de prueba de una rama:** pestaña **Actions** → ejecución "Compilar .exe" → sección
+  **Artifacts** → `RespaldoDrivers-1.0.N`.
+
+Como el `.exe` no está firmado digitalmente, Windows puede mostrar "Windows protegió su PC": elige
+**Más información → Ejecutar de todas formas**.
+
 ## Requisitos
 
 - Windows 10 (versión 1607 o superior) u 11.
@@ -100,15 +110,15 @@ powershell -ExecutionPolicy Bypass -File .\RespaldoDrivers.ps1 -Respaldar "E:\"
 powershell -ExecutionPolicy Bypass -File .\RespaldoDrivers.ps1 -Restaurar "E:\Drivers_HP_ProBook 450 G8_2026-10-23"
 ```
 
-## Crear un .exe (opcional)
+## Crear el .exe en tu propio equipo (opcional)
 
-Si prefieres un único ejecutable, en Windows ejecuta:
+GitHub ya lo genera solo, pero también puedes crearlo en Windows:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\RespaldoDrivers\Crear-EXE.ps1
 ```
 
-Genera `RespaldoDrivers.exe` (usa el módulo [ps2exe](https://github.com/MScholtes/PS2EXE)). El `.exe`
+Genera `RespaldoDrivers.exe` con el módulo [ps2exe](https://github.com/MScholtes/PS2EXE). El `.exe`
 también se copia dentro de cada respaldo.
 
 ## Cómo funciona
