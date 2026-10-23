@@ -8,17 +8,29 @@ fabricantes ya no los publican).
 
 - Windows 10 (versión 1607 o superior) u 11.
 - Permisos de administrador (la app los pide sola).
-- No necesita instalar nada: usa PowerShell y las herramientas de Windows (`DISM` y `pnputil`).
+- No necesita instalar nada: usa PowerShell, la interfaz gráfica de Windows (WPF) y las herramientas
+  de Windows (`DISM` y `pnputil`).
 
 ## Cómo se usa
+
+Al abrir la app aparece la **pantalla de inicio** con dos opciones grandes:
+
+- **Respaldar drivers** (paso 1, antes de formatear)
+- **Restaurar drivers** (paso 2, después de formatear)
+
+Debajo se ve el estado del equipo, por ejemplo "3 dispositivos sin driver". Si la app encuentra un
+respaldo en su misma carpeta, muestra un aviso con el botón **Restaurar ahora**.
 
 ### 1. Antes de formatear: respaldar
 
 1. Copia la carpeta `RespaldoDrivers` a una **USB** (o a un disco que no vayas a formatear).
 2. Doble clic en **`Iniciar-RespaldoDrivers.bat`** y acepta el permiso de administrador.
-3. En la pestaña **"1. Respaldar drivers"** presiona **Analizar drivers del equipo**.
-   Verás los drivers agrupados por categoría y, junto a cada uno, el dispositivo que lo usa.
-4. Revisa la carpeta de destino (por defecto se propone la USB) y presiona **Respaldar seleccionados**.
+3. Elige **Respaldar drivers**. La app analiza el equipo y muestra:
+   - a la izquierda, las **categorías** con su ícono, una casilla y cuántos drivers tiene;
+   - a la derecha, los **drivers de la categoría elegida**: fabricante, dispositivo, versión y fecha.
+4. Desmarca lo que no quieras guardar, revisa **Guardar en** (por defecto propone la USB) y presiona
+   **Respaldar N drivers**. Una ventana muestra el progreso y, al terminar, el resultado con el botón
+   **Abrir carpeta**.
 
 Se crea una carpeta como esta:
 
@@ -41,13 +53,14 @@ Drivers_HP_ProBook 450 G8_2026-10-23\
 └── Iniciar-RespaldoDrivers.bat
 ```
 
-### 2. Después de formatear: instalar
+### 2. Después de formatear: restaurar
 
-1. Conecta la USB y abre la carpeta del respaldo.
-2. Doble clic en **`Iniciar-RespaldoDrivers.bat`**.
-   La app abre directamente la pestaña **"2. Instalar drivers"** con el respaldo ya cargado.
-3. (Opcional) **Ver dispositivos sin driver** muestra qué falta por instalar.
-4. Presiona **Instalar seleccionados** y reinicia al terminar.
+1. Conecta la USB, abre la carpeta del respaldo y haz doble clic en **`Iniciar-RespaldoDrivers.bat`**.
+2. En la pantalla de inicio presiona **Restaurar ahora** (o **Restaurar drivers** y luego **Buscar respaldo...**).
+3. Revisa las categorías y presiona **Instalar N drivers**. La columna **Estado** de cada driver muestra
+   *Instalado*, *Sin cambios* o *Error*.
+4. Al terminar se muestra cuántos dispositivos quedaban sin driver antes y cuántos quedan ahora, con el
+   botón **Reiniciar ahora**.
 
 Los drivers se instalan en orden: primero chipset y almacenamiento, luego USB, video, audio, red, etc.
 La categoría **Firmware y BIOS** viene desmarcada por seguridad (actualiza el BIOS al reiniciar);
