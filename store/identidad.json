@@ -1,7 +1,7 @@
 {
-  "_instrucciones": "Copia estos valores de Partner Center > tu app > Identidad del producto (Product identity). No cambies DisplayName salvo que hayas reservado otro nombre.",
-  "IdentityName": "PENDIENTE.RespaldodeDrivers",
-  "Publisher": "CN=PENDIENTE",
+  "_instrucciones": "Valores de Partner Center > RespaldoDrivers > Identidad del producto. DisplayName debe ser igual al nombre reservado en la Store.",
+  "IdentityName": "GarridoitSolutions.RespaldoDrivers",
+  "Publisher": "CN=97E71BB8-34DD-4461-A440-AFE4AC83ADB3",
   "PublisherDisplayName": "GarridoitSolutions",
-  "DisplayName": "Respaldo de Drivers"
+  "DisplayName": "RespaldoDrivers"
 }

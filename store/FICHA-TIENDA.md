@@ -93,7 +93,7 @@ Antes de publicarla, reemplaza en el archivo `[NOMBRE DEL PUBLICADOR]` y `[CORRE
 
 ## Paso 4 — Ficha de la tienda (Español - México)
 
-**Nombre:** Respaldo de Drivers
+**Nombre:** RespaldoDrivers (el nombre reservado en Partner Center)
 
 **Descripción breve**
 > Guarda todos los drivers de tu PC organizados por categoría y vuelve a instalarlos después de formatear, sin buscarlos en internet.
