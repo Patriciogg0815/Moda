@@ -141,7 +141,8 @@ Antes de publicarla, reemplaza en el archivo `[NOMBRE DEL PUBLICADOR]` y `[CORRE
 "Compilar .exe" (están en el tamaño que pide la Store, 1366×768 o más). Usa en este orden:
 `1-inicio`, `2-respaldar`, `4-restaurar`, `6-resultado`.
 
-**Logo de la tienda (1:1, 300×300):** `LogoTienda-300x300.png`
+**Imágenes para mostrar en Store (1:1):** `LogoTienda-300x300.png`, `LogoTienda-150x150.png` y
+`LogoTienda-71x71.png`, cada una en su recuadro.
 
 **Arte de superhéroe (16:9):** `ArteSuperheroe-3840x2160.png` (o `ArteSuperheroe-1920x1080.png`). No lleva texto
 porque la Store muestra el nombre de la app encima.
