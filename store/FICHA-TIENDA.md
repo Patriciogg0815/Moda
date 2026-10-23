@@ -143,6 +143,9 @@ Antes de publicarla, reemplaza en el archivo `[NOMBRE DEL PUBLICADOR]` y `[CORRE
 
 **Logo de la tienda (1:1, 300×300):** `LogoTienda-300x300.png`
 
+**Arte de superhéroe (16:9):** `ArteSuperheroe-3840x2160.png` (o `ArteSuperheroe-1920x1080.png`). No lleva texto
+porque la Store muestra el nombre de la app encima.
+
 **Desarrollado por / Correo de soporte:** tus datos de contacto.
 
 ## Paso 5 — Enviar
