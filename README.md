@@ -6,8 +6,9 @@ fabricantes ya no los publican).
 
 ## Descargar
 
-- **Versión lista para usar:** en la sección **Releases** del repositorio descarga `RespaldoDrivers.exe`
-  (un solo archivo) o `RespaldoDrivers.zip`. Se publica sola cada vez que se actualiza la rama `main`.
+- **Versión lista para usar:** en la sección **Releases** del repositorio descarga `RespaldoDrivers.exe`.
+  Es la aplicación completa en un solo archivo: no se instala ni necesita otros archivos. Se publica
+  sola cada vez que se actualiza la rama `main`.
 - **Versión de prueba de una rama:** pestaña **Actions** → ejecución "Compilar .exe" → sección
   **Artifacts** → `RespaldoDrivers-1.0.N`.
 
@@ -24,8 +25,7 @@ Los pasos están en [`store/FICHA-TIENDA.md`](store/FICHA-TIENDA.md).
 
 - Windows 10 (versión 1607 o superior) u 11.
 - Permisos de administrador (la app los pide sola).
-- No necesita instalar nada: usa PowerShell, la interfaz gráfica de Windows (WPF) y las herramientas
-  de Windows (`DISM` y `pnputil`).
+- No necesita instalar nada: usa las herramientas de Windows (`DISM` y `pnputil`).
 
 ## Cómo se usa
 
@@ -39,8 +39,8 @@ respaldo en su misma carpeta, muestra un aviso con el botón **Restaurar ahora**
 
 ### 1. Antes de formatear: respaldar
 
-1. Copia la carpeta `RespaldoDrivers` a una **USB** (o a un disco que no vayas a formatear).
-2. Doble clic en **`Iniciar-RespaldoDrivers.bat`** y acepta el permiso de administrador.
+1. Copia **`RespaldoDrivers.exe`** a una **USB** (o a un disco que no vayas a formatear).
+2. Ábrelo con doble clic y acepta el permiso de administrador.
 3. Elige **Respaldar drivers**. La app analiza el equipo y muestra:
    - a la izquierda, las **categorías** con su ícono, una casilla y cuántos drivers tiene;
    - a la derecha, los **drivers de la categoría elegida**: fabricante, dispositivo, versión y fecha.
@@ -65,13 +65,12 @@ Drivers_HP_ProBook 450 G8_2026-10-23\
 ├── inventario.csv                ← lista de drivers (se abre con Excel)
 ├── LEEME.txt                     ← datos del equipo e instrucciones
 ├── registro_respaldo.txt
-├── RespaldoDrivers.ps1           ← copia de la app, lista para usar tras formatear
-└── Iniciar-RespaldoDrivers.bat
+└── RespaldoDrivers.exe           ← copia de la app, lista para usar tras formatear
 ```
 
 ### 2. Después de formatear: restaurar
 
-1. Conecta la USB, abre la carpeta del respaldo y haz doble clic en **`Iniciar-RespaldoDrivers.bat`**.
+1. Conecta la USB, abre la carpeta del respaldo y haz doble clic en **`RespaldoDrivers.exe`**.
 2. En la pantalla de inicio presiona **Restaurar ahora** (o **Restaurar drivers** y luego **Buscar respaldo...**).
 3. Revisa las categorías y presiona **Instalar N drivers**. La columna **Estado** de cada driver muestra
    *Instalado*, *Sin cambios* o *Error*.
@@ -106,7 +105,13 @@ aunque no tenga `respaldo.json`.
 | 19 - Extensiones de Drivers | Personalizaciones del fabricante del equipo |
 | 99 - Otros | Cualquier otra clase |
 
-## Uso por línea de comandos (opcional)
+## Para desarrolladores
+
+El código fuente de la app es [`RespaldoDrivers/RespaldoDrivers.ps1`](RespaldoDrivers/RespaldoDrivers.ps1)
+(PowerShell + WPF). GitHub Actions lo compila como `RespaldoDrivers.exe` en cada cambio. Para probarlo
+sin compilar: clic derecho en el archivo → **Ejecutar con PowerShell**.
+
+### Uso por línea de comandos
 
 ```powershell
 # Respaldar todo en E:\ (crea E:\Drivers_<Fabricante>_<Modelo>_<fecha>)
@@ -116,7 +121,7 @@ powershell -ExecutionPolicy Bypass -File .\RespaldoDrivers.ps1 -Respaldar "E:\"
 powershell -ExecutionPolicy Bypass -File .\RespaldoDrivers.ps1 -Restaurar "E:\Drivers_HP_ProBook 450 G8_2026-10-23"
 ```
 
-## Crear el .exe en tu propio equipo (opcional)
+### Crear el .exe en tu propio equipo
 
 GitHub ya lo genera solo, pero también puedes crearlo en Windows:
 

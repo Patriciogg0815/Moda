@@ -5,7 +5,8 @@
     por categoría y los vuelve a instalar después de formatear.
 
 .DESCRIPTION
-    Modo gráfico (normal): doble clic en Iniciar-RespaldoDrivers.bat
+    Este archivo es el código fuente de RespaldoDrivers.exe (GitHub Actions lo compila con ps2exe).
+    Para probarlo sin compilar: clic derecho en el archivo → "Ejecutar con PowerShell".
 
     Modo línea de comandos (sin ventana):
         .\RespaldoDrivers.ps1 -Respaldar "E:\"
@@ -28,7 +29,6 @@ $ErrorActionPreference = 'Stop'
 
 $script:AppVersion       = '1.0.0'
 $script:ManifestName     = 'respaldo.json'
-$script:LauncherName     = 'Iniciar-RespaldoDrivers.bat'
 $script:FirmwareCategory = 'Firmware y BIOS'
 $script:Gui              = $null
 $script:LogFile          = $null
@@ -353,18 +353,20 @@ function Export-SingleDriver($Driver, [string]$Target) {
     Copy-Item -Path (Join-Path $Driver.StorePath '*') -Destination $Target -Recurse -Force
 }
 
+# Copia la app (el .exe) dentro del respaldo para poder usarla después de formatear
 function Copy-AppToBackup([string]$Destination) {
-    $files = if ($script:IsExe) { @($script:ScriptPath) } else { @($script:ScriptPath, (Join-Path $script:ScriptDir $script:LauncherName)) }
-    foreach ($f in $files) {
-        if (-not (Test-Path -LiteralPath $f)) { continue }
-        $target = Join-Path $Destination (Split-Path $f -Leaf)
-        if ([IO.Path]::GetFullPath($f) -ieq [IO.Path]::GetFullPath($target)) { continue }
-        Copy-Item -LiteralPath $f -Destination $target -Force
-    }
+    $target = Join-Path $Destination (Split-Path $script:ScriptPath -Leaf)
+    if ([IO.Path]::GetFullPath($script:ScriptPath) -ieq [IO.Path]::GetFullPath($target)) { return }
+    Copy-Item -LiteralPath $script:ScriptPath -Destination $target -Force
+}
+
+# Cómo abrir la copia de la app que queda en el respaldo
+function Get-OpenInstruction {
+    $name = Split-Path $script:ScriptPath -Leaf
+    if ($script:IsExe) { "haz doble clic en «$name»" } else { "haz clic derecho en «$name» → Ejecutar con PowerShell" }
 }
 
 function Write-BackupReadme([string]$Destination, $Computer, [object[]]$Drivers) {
-    $launcher = if ($script:IsExe) { Split-Path $script:ScriptPath -Leaf } else { $script:LauncherName }
     $lines = @(
         'RESPALDO DE DRIVERS'
         '==================='
@@ -379,9 +381,9 @@ function Write-BackupReadme([string]$Destination, $Computer, [object[]]$Drivers)
         '----------------------------------------------'
         '1. Guarda esta carpeta completa en una USB o en un disco que no vayas a formatear.'
         '2. Después de instalar Windows, conecta la USB y abre esta carpeta.'
-        "3. Haz doble clic en `"$launcher`" y acepta el permiso de administrador."
-        '4. La aplicación abre la pestaña "Instalar drivers" con este respaldo ya cargado.'
-        '5. Presiona "Instalar seleccionados" y reinicia el equipo al terminar.'
+        "3. En esta carpeta, $(Get-OpenInstruction) y acepta el permiso de administrador."
+        '4. En la pantalla de inicio presiona "Restaurar ahora".'
+        '5. Presiona "Instalar N drivers" y reinicia el equipo al terminar.'
         ''
         'CONTENIDO POR CATEGORÍA'
         '-----------------------'
@@ -1627,10 +1629,9 @@ function Start-Backup {
 
     Invoke-GuiAction 'Respaldando drivers...' {
         $res = Invoke-DriverBackup -Destination $dest -Drivers $selected
-        $launcher = if ($script:IsExe) { Split-Path $script:ScriptPath -Leaf } else { $script:LauncherName }
         $text = "Se guardaron $($res.Ok) drivers"
         if ($res.Failed) { $text += " ($($res.Failed) con error)" }
-        $text += " en:`n$($res.Path)`n`nDespués de formatear, abre esa carpeta y ejecuta «$launcher»."
+        $text += " en:`n$($res.Path)`n`nDespués de formatear, abre esa carpeta y $(Get-OpenInstruction)."
         if (Test-OnSystemDrive $res.Path) { $text += "`n`nRecuerda copiar la carpeta a una USB antes de formatear." }
         $path = $res.Path
         Show-OverlayResult -Kind $(if ($res.Failed) { 'Warn' } else { 'Ok' }) -Title 'Respaldo terminado' -Text $text `
