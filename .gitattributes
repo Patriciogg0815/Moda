@@ -1,0 +1,4 @@
+# Los scripts de Windows se guardan tal cual (CRLF y BOM) para que funcionen
+# también al descargar el repositorio como ZIP.
+*.ps1 -text diff
+*.bat -text diff
