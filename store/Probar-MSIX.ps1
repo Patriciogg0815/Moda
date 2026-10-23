@@ -38,15 +38,17 @@ try {
     $manifest = (Get-AppxPackageManifest $installed).Package
     $app = $manifest.Applications.Application
     Write-Host "OK: aplicación '$($app.Id)' -> $($app.Executable)"
-    $caps = $manifest.Capabilities.ChildNodes | ForEach-Object { $_.GetAttribute('Name') }
+    $caps = $manifest.Capabilities.ChildNodes | Where-Object { $_.NodeType -eq 'Element' } | ForEach-Object { $_.GetAttribute('Name') }
     foreach ($needed in 'runFullTrust', 'allowElevation') {
         if ($caps -notcontains $needed) { throw "Falta el permiso $needed en el paquete." }
     }
     Write-Host "OK: permisos declarados: $($caps -join ', ')"
-
-    Remove-AppxPackage -Package $installed.PackageFullName
-    Write-Host 'OK: desinstalado correctamente' -ForegroundColor Green
 } finally {
+    $leftover = Get-AppxPackage -Name $id.IdentityName
+    if ($leftover) {
+        Remove-AppxPackage -Package $leftover.PackageFullName
+        Write-Host 'OK: paquete de prueba desinstalado'
+    }
     Get-ChildItem 'Cert:\LocalMachine\TrustedPeople', 'Cert:\CurrentUser\My' |
         Where-Object Thumbprint -eq $cert.Thumbprint | Remove-Item
     Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
