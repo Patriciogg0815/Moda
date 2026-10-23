@@ -1,0 +1,94 @@
+# Compila RespaldoDrivers.exe en Windows.
+# - En cada cambio: prueba la ventana en Windows y deja el .exe y las capturas en "Artifacts".
+# - En cada cambio: genera también el paquete MSIX para la Microsoft Store y prueba que se instala.
+# - En la rama main: además publica una versión descargable en "Releases".
+name: Compilar .exe
+
+on:
+  push:
+    paths:
+      - 'RespaldoDrivers/**'
+      - 'store/**'
+      - '.github/**'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    env:
+      VERSION: 1.0.${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolución de pantalla para las capturas
+        shell: powershell
+        continue-on-error: true
+        run: Set-DisplayResolution -Width 1920 -Height 1080 -Force
+
+      - name: Probar la interfaz en Windows
+        shell: powershell
+        run: .\.github\scripts\Probar-Interfaz.ps1
+
+      - name: Capturas en el registro
+        if: always()
+        shell: powershell
+        run: |
+          Get-ChildItem capturas\*.jpg -ErrorAction SilentlyContinue | ForEach-Object {
+            $b64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($_.FullName))
+            Write-Host "::group::$($_.Name)"
+            for ($i = 0; $i -lt $b64.Length; $i += 4000) { Write-Host ("B64|{0}|{1}" -f $_.BaseName, $b64.Substring($i, [Math]::Min(4000, $b64.Length - $i))) }
+            Write-Host '::endgroup::'
+          }
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: capturas-de-pantalla
+          path: capturas/*.png
+          if-no-files-found: ignore
+
+      - name: Instalar ps2exe
+        shell: powershell
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module ps2exe -Scope CurrentUser -Force
+
+      - name: Generar RespaldoDrivers.exe
+        shell: powershell
+        run: .\RespaldoDrivers\Crear-EXE.ps1 -Version $env:VERSION -OutputDir dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RespaldoDrivers-${{ env.VERSION }}
+          path: dist/
+
+      - name: Generar paquete MSIX (Microsoft Store)
+        shell: powershell
+        run: .\store\Crear-MSIX.ps1 -ExePath dist\RespaldoDrivers.exe -Version "$env:VERSION.0" -OutputDir dist-store
+
+      - name: Probar instalación del MSIX
+        shell: powershell
+        run: .\store\Probar-MSIX.ps1 -Package dist-store\RespaldoDrivers.msix
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MicrosoftStore-RespaldoDrivers-${{ env.VERSION }}
+          path: dist-store/RespaldoDrivers.msix
+
+      - name: Publicar versión
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}
+          target_commitish: ${{ github.sha }}
+          name: Respaldo de Drivers ${{ env.VERSION }}
+          body: |
+            **Descarga `RespaldoDrivers.exe`**, cópialo a una USB y ábrelo con doble clic (pide permiso de administrador).
+            Es la aplicación completa en un solo archivo: no necesita instalarse ni ningún otro archivo.
+
+            Como el .exe no está firmado digitalmente, Windows puede mostrar "Windows protegió su PC": elige **Más información → Ejecutar de todas formas**.
+          files: dist/RespaldoDrivers.exe
