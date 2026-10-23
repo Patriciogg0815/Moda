@@ -84,7 +84,8 @@ foreach ($n in 'PageHome', 'PageBackup', 'PageRestore', 'Overlay', 'BkCategories
 }
 
 $window.WindowStartupLocation = 'Manual'
-$window.Left = 0; $window.Top = 0; $window.Width = 1100; $window.Height = 740
+# 1400 x 860: las capturas sirven para la Microsoft Store (mínimo 1366 x 768)
+$window.Left = 0; $window.Top = 0; $window.Width = 1400; $window.Height = 860
 $window.ShowActivated = $false
 $window.Content.Background = New-Brush '#F3F3F3'
 $window.Show()

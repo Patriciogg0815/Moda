@@ -14,6 +14,12 @@ fabricantes ya no los publican).
 Como el `.exe` no está firmado digitalmente, Windows puede mostrar "Windows protegió su PC": elige
 **Más información → Ejecutar de todas formas**.
 
+## Microsoft Store
+
+La carpeta [`store/`](store/) tiene todo lo necesario para publicar la app en la Microsoft Store:
+paquete MSIX generado por GitHub Actions, íconos, política de privacidad y los textos de la ficha.
+Los pasos están en [`store/FICHA-TIENDA.md`](store/FICHA-TIENDA.md).
+
 ## Requisitos
 
 - Windows 10 (versión 1607 o superior) u 11.
