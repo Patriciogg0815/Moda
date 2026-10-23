@@ -70,6 +70,11 @@ Partner Center pedirá justificar los dos permisos especiales. Texto sugerido:
 > nada de internet: solo trabaja con los drivers que ya están en el equipo o en la carpeta que el
 > usuario elige.
 
+### Donaciones (Ko-fi)
+La app es gratis y tiene un botón opcional "Apoyar en Ko-fi" que abre la página de donaciones en el
+navegador. No desbloquea funciones ni vende contenido, así que no necesita las compras de la Store.
+En **Propiedades** no marques "contiene compras desde la aplicación".
+
 ### Notas para la certificación
 > La aplicación no requiere cuenta ni conexión a internet. Para probarla: abrir la app y aceptar el aviso
 > de administrador → "Respaldar drivers" → elegir una carpeta (por ejemplo, el escritorio) →

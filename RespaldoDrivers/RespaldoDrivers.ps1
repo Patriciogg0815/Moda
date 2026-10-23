@@ -28,6 +28,8 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $script:AppVersion       = '1.0.0'
+# Página de Ko-fi para el botón "Apoyar". Mientras diga PENDIENTE, el botón no se muestra.
+$script:SupportUrl       = 'https://ko-fi.com/PENDIENTE'
 $script:ManifestName     = 'respaldo.json'
 $script:FirmwareCategory = 'Firmware y BIOS'
 $script:Gui              = $null
@@ -1013,6 +1015,7 @@ $script:Xaml = @'
         <ColumnDefinition Width="Auto"/>
         <ColumnDefinition Width="*"/>
         <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="Auto"/>
       </Grid.ColumnDefinitions>
       <Button x:Name="BtnBack" Style="{StaticResource SubtleButton}" Width="40" Height="40" Padding="0"
               Margin="0,0,14,0" VerticalAlignment="Center" Visibility="Collapsed" ToolTip="Volver al inicio">
@@ -1024,7 +1027,14 @@ $script:Xaml = @'
         <TextBlock x:Name="TxtSubtitle" Foreground="{StaticResource TextSecondary}" Margin="0,2,0,0" TextWrapping="Wrap"
                    Text="Guarda los drivers de tu equipo y vuelve a instalarlos después de formatear."/>
       </StackPanel>
-      <Border Grid.Column="2" Style="{StaticResource Card}" Padding="14,10" VerticalAlignment="Center">
+      <Button x:Name="BtnSupport" Grid.Column="2" Style="{StaticResource SubtleButton}" Padding="14,9" Margin="0,0,12,0"
+              VerticalAlignment="Center" Visibility="Collapsed" ToolTip="Abre la página de Ko-fi en tu navegador">
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Style="{StaticResource Icon}" Text="&#xEB52;" Foreground="#FF5E5B" Margin="0,0,8,0"/>
+          <TextBlock Text="Apoyar en Ko-fi" FontWeight="SemiBold"/>
+        </StackPanel>
+      </Button>
+      <Border Grid.Column="3" Style="{StaticResource Card}" Padding="14,10" VerticalAlignment="Center">
         <StackPanel Orientation="Horizontal">
           <TextBlock Style="{StaticResource Icon}" Text="&#xE7F8;" FontSize="26" Foreground="{StaticResource Accent}" Margin="0,0,12,0"/>
           <StackPanel>
@@ -1384,10 +1394,16 @@ $script:Xaml = @'
                      VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                      TextWrapping="NoWrap" Background="#FAFAFA" BorderBrush="{StaticResource CardBorder}"/>
           </Expander>
-          <StackPanel x:Name="OvButtons" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0" Visibility="Collapsed">
-            <Button x:Name="OvPrimary" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
-            <Button x:Name="OvClose" Style="{StaticResource SubtleButton}" Content="Listo" Padding="22,9"/>
-          </StackPanel>
+          <DockPanel x:Name="OvButtons" Margin="0,20,0,0" LastChildFill="False" Visibility="Collapsed">
+            <Button x:Name="OvSupport" DockPanel.Dock="Left" Style="{StaticResource SubtleButton}" Padding="14,9" Visibility="Collapsed">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Style="{StaticResource Icon}" Text="&#xEB52;" Foreground="#FF5E5B" Margin="0,0,8,0"/>
+                <TextBlock Text="¿Te sirvió? Apóyanos en Ko-fi"/>
+              </StackPanel>
+            </Button>
+            <Button x:Name="OvClose" DockPanel.Dock="Right" Style="{StaticResource SubtleButton}" Content="Listo" Padding="22,9"/>
+            <Button x:Name="OvPrimary" DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
+          </DockPanel>
         </StackPanel>
       </Border>
     </Grid>
@@ -1399,6 +1415,14 @@ function Initialize-GuiTypes {
     Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Xaml, System.Windows.Forms
     if (-not ('RespaldoDrivers.DriverSet' -as [type])) { Add-Type -TypeDefinition $script:GuiTypesSource -Language CSharp }
     $script:UiCallback = [System.Windows.Threading.DispatcherOperationCallback]{ param($frame) $frame.Continue = $false; $null }
+}
+
+function Test-SupportConfigured { $script:SupportUrl -and $script:SupportUrl -notmatch 'PENDIENTE' }
+
+# Abre Ko-fi con explorer.exe para que el navegador no se abra con permisos de administrador
+function Open-SupportPage {
+    try { Start-Process explorer.exe -ArgumentList "`"$script:SupportUrl`"" }
+    catch { Write-Log "No se pudo abrir $($script:SupportUrl): $($_.Exception.Message)" Warn }
 }
 
 function New-Brush([string]$Hex) { (New-Object System.Windows.Media.BrushConverter).ConvertFromString($Hex) }
@@ -1478,7 +1502,8 @@ function Show-OverlayResult {
         [string]$Text,
         [string]$PrimaryText,
         [scriptblock]$PrimaryAction,
-        [string]$CloseText = 'Listo'
+        [string]$CloseText = 'Listo',
+        [switch]$ShowSupport
     )
     $g = $script:Gui
     $style = @{
@@ -1496,6 +1521,7 @@ function Show-OverlayResult {
     $g.OvPrimary.Content = $PrimaryText
     $g.OvPrimary.Visibility = if ($PrimaryText) { 'Visible' } else { 'Collapsed' }
     $g.OvClose.Content = $CloseText
+    $g.OvSupport.Visibility = if ($ShowSupport -and (Test-SupportConfigured)) { 'Visible' } else { 'Collapsed' }
     $g.OvBusy.Visibility = 'Collapsed'
     $g.OvDone.Visibility = 'Visible'
     $g.OvButtons.Visibility = 'Visible'
@@ -1635,7 +1661,8 @@ function Start-Backup {
         if (Test-OnSystemDrive $res.Path) { $text += "`n`nRecuerda copiar la carpeta a una USB antes de formatear." }
         $path = $res.Path
         Show-OverlayResult -Kind $(if ($res.Failed) { 'Warn' } else { 'Ok' }) -Title 'Respaldo terminado' -Text $text `
-            -PrimaryText 'Abrir carpeta' -PrimaryAction ({ Start-Process explorer.exe -ArgumentList "`"$path`"" }.GetNewClosure())
+            -PrimaryText 'Abrir carpeta' -PrimaryAction ({ Start-Process explorer.exe -ArgumentList "`"$path`"" }.GetNewClosure()) `
+            -ShowSupport:(-not $res.Failed)
     }
 }
 
@@ -1701,7 +1728,8 @@ function Start-Restore {
             "Dispositivos sin driver: antes $($res.MissingBefore), ahora $($res.MissingAfter)."
         $text += if ($res.Reboot) { "`n`nReinicia el equipo para terminar la instalación." } else { "`n`nSe recomienda reiniciar el equipo." }
         Show-OverlayResult -Kind $(if ($res.Failed) { 'Warn' } else { 'Ok' }) -Title 'Instalación terminada' -Text $text `
-            -PrimaryText 'Reiniciar ahora' -PrimaryAction { Restart-Computer -Force } -CloseText 'Más tarde'
+            -PrimaryText 'Reiniciar ahora' -PrimaryAction { Restart-Computer -Force } -CloseText 'Más tarde' `
+            -ShowSupport:(-not $res.Failed)
     }
 }
 
@@ -1766,6 +1794,9 @@ function New-MainWindow {
 
     # --- Ventana de resultado ---
     $g.OvClose.Add_Click({ Hide-Overlay })
+    $g.OvSupport.Add_Click({ Open-SupportPage })
+    $g.BtnSupport.Add_Click({ Open-SupportPage })
+    $g.BtnSupport.Visibility = if (Test-SupportConfigured) { 'Visible' } else { 'Collapsed' }
     $g.OvPrimary.Add_Click({
         $action = $script:Gui.OvPrimaryAction
         Hide-Overlay

@@ -75,7 +75,9 @@ $drivers = @(
     New-FakeDriver 19 'Extensiones de Drivers' 'HP' 'HpAudioExt.inf' '1.0.12.0' '2023-08-01' $null
 )
 
-# 3. Crear la ventana real
+# 3. Crear la ventana real (con un enlace de Ko-fi de ejemplo para que se vea el botón de apoyo)
+Assert (-not (Test-SupportConfigured)) 'Sin enlace de Ko-fi configurado, el botón de apoyo queda oculto'
+$script:SupportUrl = 'https://ko-fi.com/ejemplo'
 $window = New-MainWindow
 Assert ($window -is [System.Windows.Window]) 'New-MainWindow devuelve una única ventana WPF'
 $g = $script:Gui
@@ -90,6 +92,7 @@ $window.ShowActivated = $false
 $window.Content.Background = New-Brush '#F3F3F3'
 $window.Show()
 Update-UI
+Assert ($g.BtnSupport.Visibility -eq 'Visible') 'Con enlace configurado se muestra el botón "Apoyar en Ko-fi"'
 Assert ($g.PcModel.Text.Length -gt 0) 'Se muestran los datos del equipo'
 Assert ($g.BkDest.Text.Length -gt 0) "Se propone una carpeta de destino: $($g.BkDest.Text)"
 
@@ -142,9 +145,10 @@ Show-Overlay 'Instalando drivers...'
 Write-Log 'Instalado: Video y Graficos \ Intel Corporation - iigd_dch - 31.0.101.4502' Ok
 Set-Progress 9 15 'Instalando 10 de 15: Red (Ethernet y WiFi) \ Intel - Netwtw10 - 22.250.1.2'
 Save-Shot '5-progreso'
-Show-OverlayResult -Kind Ok -Title 'Instalación terminada' -PrimaryText 'Reiniciar ahora' -CloseText 'Más tarde' `
+Show-OverlayResult -Kind Ok -Title 'Instalación terminada' -PrimaryText 'Reiniciar ahora' -CloseText 'Más tarde' -ShowSupport `
     -Text "Instalados:   12`nSin cambios:  3`nCon error:    0`n`nDispositivos sin driver: antes 12, ahora 0.`n`nReinicia el equipo para terminar la instalación."
 Save-Shot '6-resultado'
+Assert ($g.OvSupport.Visibility -eq 'Visible') 'La ventana de resultado invita a apoyar en Ko-fi'
 Invoke-Click $g.OvClose
 Assert ($g.Overlay.Visibility -eq 'Collapsed') 'El botón "Más tarde" cierra la ventana de resultado'
 
