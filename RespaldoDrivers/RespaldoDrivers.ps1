@@ -1031,7 +1031,7 @@ $script:Xaml = @'
               VerticalAlignment="Center" Visibility="Collapsed" ToolTip="Abre la página de Ko-fi en tu navegador">
         <StackPanel Orientation="Horizontal">
           <TextBlock Style="{StaticResource Icon}" Text="&#xEB52;" Foreground="#FF5E5B" Margin="0,0,8,0"/>
-          <TextBlock Text="Apoyar en Ko-fi" FontWeight="SemiBold"/>
+          <TextBlock Text="Apoyar a la app" FontWeight="SemiBold"/>
         </StackPanel>
       </Button>
       <Border Grid.Column="3" Style="{StaticResource Card}" Padding="14,10" VerticalAlignment="Center">
@@ -1398,7 +1398,7 @@ $script:Xaml = @'
             <Button x:Name="OvSupport" DockPanel.Dock="Left" Style="{StaticResource SubtleButton}" Padding="14,9" Visibility="Collapsed">
               <StackPanel Orientation="Horizontal">
                 <TextBlock Style="{StaticResource Icon}" Text="&#xEB52;" Foreground="#FF5E5B" Margin="0,0,8,0"/>
-                <TextBlock Text="¿Te sirvió? Apóyanos en Ko-fi"/>
+                <TextBlock Text="¿Te sirvió? Apoya a la app"/>
               </StackPanel>
             </Button>
             <Button x:Name="OvClose" DockPanel.Dock="Right" Style="{StaticResource SubtleButton}" Content="Listo" Padding="22,9"/>

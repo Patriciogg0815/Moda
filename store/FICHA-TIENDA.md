@@ -71,7 +71,7 @@ Partner Center pedirá justificar los dos permisos especiales. Texto sugerido:
 > usuario elige.
 
 ### Donaciones (Ko-fi)
-La app es gratis y tiene un botón opcional "Apoyar en Ko-fi" que abre la página de donaciones en el
+La app es gratis y tiene un botón opcional "Apoyar a la app" que abre la página de donaciones de Ko-fi en el
 navegador. No desbloquea funciones ni vende contenido, así que no necesita las compras de la Store.
 En **Propiedades** no marques "contiene compras desde la aplicación".
 

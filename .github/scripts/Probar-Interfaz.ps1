@@ -95,7 +95,7 @@ $window.ShowActivated = $false
 $window.Content.Background = New-Brush '#F3F3F3'
 $window.Show()
 Update-UI
-Assert ($g.BtnSupport.Visibility -eq 'Visible') 'Con enlace configurado se muestra el botón "Apoyar en Ko-fi"'
+Assert ($g.BtnSupport.Visibility -eq 'Visible') 'Con enlace configurado se muestra el botón "Apoyar a la app"'
 Assert ($g.PcModel.Text.Length -gt 0) 'Se muestran los datos del equipo'
 Assert ($g.BkDest.Text.Length -gt 0) "Se propone una carpeta de destino: $($g.BkDest.Text)"
 
