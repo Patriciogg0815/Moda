@@ -8,6 +8,7 @@ on:
   push:
     paths:
       - 'RespaldoDrivers/**'
+      - 'store/**'
       - '.github/**'
   pull_request:
   workflow_dispatch:
