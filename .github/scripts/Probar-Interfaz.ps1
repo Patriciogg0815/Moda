@@ -75,9 +75,12 @@ $drivers = @(
     New-FakeDriver 19 'Extensiones de Drivers' 'HP' 'HpAudioExt.inf' '1.0.12.0' '2023-08-01' $null
 )
 
-# 3. Crear la ventana real (con un enlace de Ko-fi de ejemplo para que se vea el botón de apoyo)
+# 3. Crear la ventana real
+$realSupportUrl = $script:SupportUrl
+$script:SupportUrl = 'https://ko-fi.com/PENDIENTE'
 Assert (-not (Test-SupportConfigured)) 'Sin enlace de Ko-fi configurado, el botón de apoyo queda oculto'
-$script:SupportUrl = 'https://ko-fi.com/ejemplo'
+$script:SupportUrl = $realSupportUrl
+Assert (Test-SupportConfigured) "Enlace de Ko-fi configurado: $script:SupportUrl"
 $window = New-MainWindow
 Assert ($window -is [System.Windows.Window]) 'New-MainWindow devuelve una única ventana WPF'
 $g = $script:Gui

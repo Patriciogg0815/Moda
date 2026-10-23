@@ -28,8 +28,8 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $script:AppVersion       = '1.0.0'
-# Página de Ko-fi para el botón "Apoyar". Mientras diga PENDIENTE, el botón no se muestra.
-$script:SupportUrl       = 'https://ko-fi.com/PENDIENTE'
+# Página de Ko-fi para el botón "Apoyar" (si dice PENDIENTE, el botón no se muestra)
+$script:SupportUrl       = 'https://ko-fi.com/garridoitsolutions'
 $script:ManifestName     = 'respaldo.json'
 $script:FirmwareCategory = 'Firmware y BIOS'
 $script:Gui              = $null
