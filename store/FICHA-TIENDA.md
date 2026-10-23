@@ -89,7 +89,7 @@ La Store exige una dirección web pública con la política. Opciones:
   La dirección será `https://<usuario>.github.io/<repositorio>/store/privacidad.html`.
 - **Tu propio sitio web:** sube `privacidad.html` tal cual.
 
-Antes de publicarla, reemplaza en el archivo `[NOMBRE DEL PUBLICADOR]` y `[CORREO DE CONTACTO]`.
+Dirección publicada: https://patriciogg0815.github.io/Moda/store/privacidad.html
 
 ## Paso 4 — Ficha de la tienda (Español - México)
 
