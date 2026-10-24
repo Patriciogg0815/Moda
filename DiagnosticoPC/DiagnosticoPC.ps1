@@ -3578,14 +3578,14 @@ function Show-StepWizard {
 #region Ventana: inicio, herramientas y cambios
 
 $script:HomeAreas = @(
-    @(0xE945, 'Energía e hibernación', 'Si la PC se suspende y se apaga de verdad, y qué la despierta')
-    @(0xE706, 'Temperatura', 'Calor y procesador frenado por calor')
-    @(0xE71D, 'Programas', 'Lo que consume procesador y memoria, y lo que arranca con Windows')
-    @(0xE772, 'Drivers', 'Dispositivos sin driver o con fallas')
-    @(0xE7F4, 'Pantallas azules', 'Si hubo, cuándo, por qué y cómo evitarlas')
-    @(0xE943, 'Registro de Windows', 'Cambios peligrosos y ajustes importantes')
-    @(0xE8A5, 'Archivos de Windows', 'Archivos dañados o que faltan')
-    @(0xEDA2, 'Disco, batería y antivirus', 'Espacio, salud del disco, batería y protección')
+    ,@(0xE945, 'Energía e hibernación', 'Si la PC se suspende y se apaga de verdad, y qué la despierta')
+    ,@(0xE706, 'Temperatura', 'Calor y procesador frenado por calor')
+    ,@(0xE71D, 'Programas', 'Lo que consume procesador y memoria, y lo que arranca con Windows')
+    ,@(0xE772, 'Drivers', 'Dispositivos sin driver o con fallas')
+    ,@(0xE7F4, 'Pantallas azules', 'Si hubo, cuándo, por qué y cómo evitarlas')
+    ,@(0xE943, 'Registro de Windows', 'Cambios peligrosos y ajustes importantes')
+    ,@(0xE8A5, 'Archivos de Windows', 'Archivos dañados o que faltan')
+    ,@(0xEDA2, 'Disco, batería y antivirus', 'Espacio, salud del disco, batería y protección')
 )
 
 $script:Tools = @(
