@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Política de privacidad - Monitor de Red</title>
+<style>
+  :root { --text:#1a1a1a; --muted:#5f5f5f; --bg:#f3f3f3; --card:#ffffff; --accent:#0a7c74; --border:#e5e5e5; }
+  @media (prefers-color-scheme: dark) { :root { --text:#f3f3f3; --muted:#b5b5b5; --bg:#202020; --card:#2b2b2b; --accent:#4fd1c5; --border:#3a3a3a; } }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.6 "Segoe UI", system-ui, sans-serif; }
+  main { max-width:760px; margin:32px auto; padding:32px; background:var(--card); border:1px solid var(--border); border-radius:12px; }
+  @media (max-width:800px) { main { margin:16px; padding:20px; } }
+  h1 { margin-top:0; font-size:28px; } h2 { font-size:19px; margin-top:28px; color:var(--accent); }
+  .muted { color:var(--muted); } li { margin:4px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Política de privacidad de Monitor de Red</h1>
+  <p class="muted">Última actualización: 24 de octubre de 2026</p>
+
+  <p>Monitor de Red ("la aplicación") es publicada por Garrido IT Solutions. Esta política explica
+  qué información usa la aplicación y qué hace con ella.</p>
+
+  <h2>Resumen</h2>
+  <p><strong>La aplicación no recopila, no envía y no comparte ningún dato personal.</strong> Solo se
+  comunica con los equipos de la red de tu casa (tu router y los dispositivos conectados) y toda la
+  información se queda en tu equipo.</p>
+
+  <h2>Información que la aplicación lee de tu red</h2>
+  <p>Para mostrarte qué equipos están conectados y cuánto internet usan, la aplicación lee de forma local:</p>
+  <ul>
+    <li>La dirección IP, la dirección MAC y el nombre en la red de cada equipo conectado.</li>
+    <li>El fabricante de cada equipo, que se obtiene de la dirección MAC con una lista de fabricantes
+      incluida dentro de la aplicación (sin consultar internet).</li>
+    <li>El consumo total de internet que informa tu router por UPnP y el consumo de este equipo, que se
+      lee de los contadores de red de Windows.</li>
+  </ul>
+  <p>Para descubrir los equipos, la aplicación usa los métodos estándar de una red local (ping, tabla ARP,
+  NetBIOS, mDNS y UPnP/SSDP). Estas consultas no salen de tu red.</p>
+
+  <h2>Datos que guarda en tu equipo</h2>
+  <ul>
+    <li><strong>Nombres que tú les pones a los equipos</strong> y la lista de equipos vistos, en la carpeta
+      <code>%APPDATA%\MonitorRed</code>.</li>
+  </ul>
+  <p>Puedes borrar estos datos en cualquier momento eliminando esa carpeta o desinstalando la aplicación.</p>
+
+  <h2>Información que la aplicación no recopila</h2>
+  <ul>
+    <li>No envía información a ningún servidor, ni del publicador ni de terceros.</li>
+    <li>No lee el contenido de lo que navegan tú ni los demás equipos de la red (páginas, mensajes ni
+      archivos).</li>
+    <li>No usa cookies, publicidad, analíticas ni identificadores de seguimiento.</li>
+    <li>No accede a tus documentos, contactos, ubicación, cámara ni micrófono.</li>
+    <li>No requiere crear una cuenta.</li>
+  </ul>
+
+  <h2>Uso responsable</h2>
+  <p>Usa la aplicación solo en redes que te pertenecen o que tienes permiso para administrar.</p>
+
+  <h2>Menores de edad</h2>
+  <p>La aplicación no recopila información de ningún usuario, incluidos menores de edad.</p>
+
+  <h2>Cambios a esta política</h2>
+  <p>Si la política cambia, se publicará aquí con una nueva fecha de actualización.</p>
+
+  <h2>Contacto</h2>
+  <p>Si tienes preguntas sobre esta política, escribe a <a href="mailto:patricio.garrido@garridoitsolutions.lat">patricio.garrido@garridoitsolutions.lat</a>.</p>
+</main>
+</body>
+</html>
