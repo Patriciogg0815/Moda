@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Plantilla: Crear-MSIX.ps1 reemplaza los valores {{...}} con los de identidad.json -->
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+         xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+         xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+         IgnorableNamespaces="uap rescap">
+
+  <Identity Name="{{IdentityName}}"
+            Publisher="{{Publisher}}"
+            Version="{{Version}}"
+            ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>{{DisplayName}}</DisplayName>
+    <PublisherDisplayName>{{PublisherDisplayName}}</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <Description>Revisa Windows y muestra los problemas en rojo, amarillo y verde, con el paso a paso para arreglarlos.</Description>
+  </Properties>
+
+  <Dependencies>
+    <!-- 19041 (Windows 10 2004) es la primera versión que permite pedir permisos de administrador -->
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="es-MX" />
+  </Resources>
+
+  <Applications>
+    <Application Id="DiagnosticoPC" Executable="DiagnosticoPC.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="{{DisplayName}}"
+                          Description="Revisa Windows y muestra los problemas en rojo, amarillo y verde, con el paso a paso para arreglarlos."
+                          BackgroundColor="transparent"
+                          Square150x150Logo="Assets\Square150x150Logo.png"
+                          Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png"
+                         Square71x71Logo="Assets\Square71x71Logo.png"
+                         Square310x310Logo="Assets\Square310x310Logo.png"
+                         ShortName="Diagnóstico PC" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <!-- Aplicación de escritorio clásica (WPF compilada con ps2exe): lee la configuración de energía,
+         los registros de eventos, los drivers y el estado de los discos de Windows -->
+    <rescap:Capability Name="runFullTrust" />
+    <!-- Necesita permisos de administrador para revisar y cambiar la configuración de energía,
+         reparar archivos de Windows y crear puntos de restauración -->
+    <rescap:Capability Name="allowElevation" />
+  </Capabilities>
+</Package>
