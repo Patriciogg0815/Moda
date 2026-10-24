@@ -207,6 +207,47 @@ Assert ((Get-RateBps 3000 1000 2.0) -eq -1) 'Contador que retrocede (reinicio): 
 $upnpMode = $script:MeasurementModes | Where-Object { $_.Id -eq 'Upnp' }
 Assert ($upnpMode.Implemented) 'El modo Total por UPnP está implementado'
 
+# Alertas: equipo nuevo y equipo desconectado
+$cfg = Get-DefaultSettings
+Assert ((Test-AlertsEnabled $cfg) -and (Get-WatchMinutes $cfg) -eq 2) 'Las alertas vienen activadas y la red se revisa cada 2 minutos'
+Assert ((Get-WatchMinutes @{ WatchMinutes = 'x' }) -eq 2 -and (Get-WatchMinutes @{ WatchMinutes = 5 }) -eq 5) 'Minutos entre revisiones: el guardado, o 2 si no es válido'
+$tablet = @{ Key = 'F8:4D:89:10:20:30'; Name = 'Tablet de Sofía'; Ip = '192.168.1.27'; IpValue = 27; Vendor = 'Apple'; HasCustomName = $true; LastSeen = (Get-Date).ToUniversalTime().ToString('o') }
+$movil = @{ Key = 'DA:A1:19:5C:22:01'; Name = 'iPhone-de-Ana'; Ip = '192.168.1.23'; IpValue = 23; Vendor = ''; HasCustomName = $false; LastSeen = '' }
+$redmi = @{ Key = '64:09:80:B2:33:7D'; Name = 'Redmi-Note-12'; Ip = '192.168.1.80'; IpValue = 80; Vendor = 'Xiaomi'; HasCustomName = $false; LastSeen = '' }
+$pend = @{}
+$a = Get-NetworkAlerts -Settings $cfg -NewDevices @{} -Missing @{ $tablet.Key = $tablet } -Seen @{} -Pending $pend -NetworkOk $true
+Assert ($a.Offline.Count -eq 0 -and $pend.ContainsKey($tablet.Key)) 'Un equipo que falta en una sola revisión todavía no se avisa'
+$a = Get-NetworkAlerts -Settings $cfg -NewDevices @{} -Missing @{} -Seen @{} -Pending $pend -NetworkOk $true
+Assert ($a.Offline.Count -eq 1 -and $pend.Count -eq 0) 'Si falta en 2 revisiones seguidas, se avisa que se desconectó'
+$m = Format-AlertMessage $a
+Assert ($m.Title -eq 'Se desconectó «Tablet de Sofía»' -and $m.Text -match 'Visto por última vez: hoy' -and $m.IsOffline -and $m.Key -eq $tablet.Key) "Aviso de desconexión: $($m.Title) / $($m.Text)"
+$pend = @{}
+[void](Get-NetworkAlerts -Settings $cfg -NewDevices @{} -Missing @{ $movil.Key = $movil } -Seen @{} -Pending $pend -NetworkOk $true)
+$a = Get-NetworkAlerts -Settings $cfg -NewDevices @{} -Missing @{} -Seen @{ $movil.Key = $true } -Pending $pend -NetworkOk $true
+Assert ($a.Offline.Count -eq 0 -and $pend.Count -eq 0) 'Si el equipo vuelve a aparecer en la revisión siguiente, no se avisa'
+$pend = @{ $movil.Key = $movil }
+$a = Get-NetworkAlerts -Settings $cfg -NewDevices @{} -Missing @{ $tablet.Key = $tablet } -Seen @{} -Pending $pend -NetworkOk $false
+Assert ($a.Offline.Count -eq 0 -and $pend.Count -eq 0) 'Si cambió la red o el router no respondió, no se avisa ninguna desconexión'
+$cfg.AlertNamedOnly = $true
+$pend = @{ $movil.Key = $movil; $tablet.Key = $tablet }
+$a = Get-NetworkAlerts -Settings $cfg -NewDevices @{} -Missing @{} -Seen @{} -Pending $pend -NetworkOk $true
+Assert ($a.Offline.Count -eq 1 -and $a.Offline[0].Name -eq 'Tablet de Sofía') '«Solo de los equipos a los que les puse nombre» deja solo esos avisos'
+$a = Get-NetworkAlerts -Settings $cfg -NewDevices @{ $redmi.Key = $redmi } -Missing @{} -Seen @{} -Pending @{} -NetworkOk $false
+$m = Format-AlertMessage $a
+Assert ($m.Title -eq 'Se conectó un equipo nuevo' -and $m.Text -eq '«Redmi-Note-12» · IP 192.168.1.80 · Xiaomi' -and -not $m.IsOffline) "Aviso de equipo nuevo: $($m.Title) / $($m.Text)"
+$cfg.AlertNew = $false
+$a = Get-NetworkAlerts -Settings $cfg -NewDevices @{ $redmi.Key = $redmi } -Missing @{} -Seen @{} -Pending @{} -NetworkOk $true
+Assert ($a.New.Count -eq 0 -and -not (Format-AlertMessage $a)) 'Con el aviso de equipos nuevos apagado no se avisa'
+$cfg.AlertOffline = $false
+Assert (-not (Test-AlertsEnabled $cfg)) 'Con los 2 avisos apagados no se vigila la red'
+$m = Format-AlertMessage @{ New = @($redmi, $movil); Offline = @($tablet) }
+Assert ($m.Title -eq 'Cambios en tu red' -and $m.Text -eq 'Se conectó: «Redmi-Note-12», «iPhone-de-Ana». Se desconectó: «Tablet de Sofía».') "Equipos nuevos y desconectados en un solo aviso: $($m.Text)"
+$muchos = @(1..40 | ForEach-Object { @{ Key = "k$_"; Name = "Equipo con un nombre bastante largo $_"; Ip = "192.168.1.$_"; IpValue = $_ } })
+$m = Format-AlertMessage @{ New = $muchos; Offline = @() }
+Assert ($m.Title -eq 'Se conectaron 40 equipos nuevos' -and $m.Text.Length -le 250 -and $m.Text.EndsWith('…')) 'Muchos equipos se resumen en un solo aviso corto'
+$m = Format-AlertMessage @{ New = @(); Offline = @(@{ Key = 'x'; Name = ('Televisor ' * 10).Trim(); Ip = '192.168.1.5'; LastSeen = '' }) }
+Assert ($m.Title.Length -le 63 -and $m.Text -eq 'Se apagó o salió de la red. IP 192.168.1.5') "El título largo se corta a 63 letras: $($m.Title)"
+
 $enc = Protect-Text 'clave123'
 if ($enWindows) { Assert ($enc -and $enc -ne 'clave123' -and (Unprotect-Text $enc) -eq 'clave123') 'La clave del router se guarda cifrada' }
 
@@ -296,6 +337,9 @@ $g.Session = [pscustomobject]@{ IsCompleted = $true; InternetGateways = @($u); E
 $g.SeenKeys = @{}; $g.ByIp = @{}; $g.ScanStarted = (Get-Date).AddSeconds(-14); $g.HadHistory = $true
 $g.TxtSubtitle.Text = "Red $($net.Summary)  ·  Este equipo: $($net.LocalIp)  ·  Router: $($net.Gateway)"
 foreach ($h in $casa) { Update-DeviceFromRecord $h.R }
+Assert ($g.NewKeys.Count -eq $casa.Count - 2) "Se anotan los $($g.NewKeys.Count) equipos nuevos para avisar (sin este equipo ni el router)"
+# Para las capturas: la línea de estado muestra el resumen del escaneo y no el aviso de equipos nuevos
+$g.NewKeys = @{}
 $g.Timer = New-Object System.Windows.Threading.DispatcherTimer
 $g.Session | Add-Member -MemberType ScriptMethod -Name TakeChanges -Value { @() }
 Complete-NetworkScan
@@ -366,10 +410,64 @@ Assert ($rows.Count -eq @($g.View).Count -and ($rows | Where-Object { $_.Nombre 
 Invoke-Click $g.BtnResetDevice
 Assert ($g.ByKey['DA:A1:19:5C:22:01'].DisplayName -eq 'iPhone-de-Ana') 'Restablecer vuelve al nombre automático'
 
+# Alertas: 2 revisiones automáticas. Se conecta un Galaxy nuevo y el Redmi deja de aparecer.
+$estadoEscaneo = $g.TxtStatus.Text
+function Invoke-ScanRound($Records) {
+    $g.SeenKeys = @{}; $g.ByIp = @{}; $g.NewKeys = @{}
+    foreach ($r in $Records) { Update-DeviceFromRecord $r }
+    Complete-ScanRound $true
+}
+$galaxy = New-Record 192.168.1.85 8C:79:F5:00:AA:01 -Dns 'Galaxy-A54.lan' -Ping 12
+$ronda = @($casa | ForEach-Object { $_.R } | Where-Object { $_.Ip -ne '192.168.1.80' }) + $galaxy
+Assert ($g.Tray -and $g.Tray.Visible) 'El ícono junto al reloj está listo para las notificaciones'
+$a1 = Invoke-ScanRound $ronda
+Assert ($a1 -is [hashtable] -and $a1.New.Count -eq 1 -and $a1.New[0].Key -eq '8C:79:F5:00:AA:01' -and $a1.Offline.Count -eq 0) "1.ª revisión: avisa el equipo nuevo ($(@($a1.New | ForEach-Object { $_.Name }) -join ', '))"
+Assert ($g.ByKey['64:09:80:B2:33:7D'].IsOnline -eq $false -and $g.PendingOffline.ContainsKey('64:09:80:B2:33:7D')) 'El Redmi se ve desconectado, pero se espera otra revisión antes de avisar'
+Show-NetworkAlert $a1
+Assert ($g.TxtStatus.Text -match 'Se conectó un equipo nuevo' -and $g.LastAlert.Key -eq '8C:79:F5:00:AA:01') "La línea de estado muestra el aviso: $($g.TxtStatus.Text)"
+$a2 = Invoke-ScanRound $ronda
+Assert ($a2.New.Count -eq 0 -and $a2.Offline.Count -eq 1 -and $a2.Offline[0].Key -eq '64:09:80:B2:33:7D') '2.ª revisión: avisa que el Redmi se desconectó (y el Galaxy ya no es nuevo)'
+Show-NetworkAlert $a2
+Show-AlertedDevice
+Update-UI
+Assert ($g.DeviceGrid.SelectedItem -eq $g.ByKey['64:09:80:B2:33:7D'] -and $g.ChkOffline.IsChecked) 'Al hacer clic en el aviso se abre el equipo desconectado'
+$g.ChkOffline.IsChecked = $false
+$g.RoundNetwork = 'otra-red'
+$a3 = Invoke-ScanRound @($ronda | Where-Object { $_.Ip -ne '192.168.1.85' })
+$a4 = Invoke-ScanRound @($ronda | Where-Object { $_.Ip -ne '192.168.1.85' })
+Assert ($a3.Offline.Count -eq 0 -and $a4.Offline.Count -eq 0 -and $g.PendingOffline.Count -eq 0) 'Tras cambiar de red no se avisan desconexiones de la red anterior'
+$sinRouter = @($ronda | Where-Object { -not $_.IsGateway })
+$a5 = Invoke-ScanRound $sinRouter
+$a6 = Invoke-ScanRound $sinRouter
+Assert ($a6.Offline.Count -eq 0) 'Si el router no responde (se cayó el Wi-Fi), no se avisa que todos se desconectaron'
+[void](Invoke-ScanRound $ronda)
+Update-DeviceView
+$g.TxtStatus.Text = $estadoEscaneo
+
 # Ajustes
 Invoke-Click $g.BtnSettings
 Assert ($g.PageSettings.Visibility -eq 'Visible') 'Se abre la página de Ajustes'
 Assert ($g.RbAuto.IsChecked) 'Automático viene elegido'
+Assert ($g.ChkAlertNew.IsChecked -and $g.ChkAlertOffline.IsChecked -and -not $g.ChkAlertNamedOnly.IsChecked -and $g.CbWatchMinutes.SelectedItem.Tag -eq 2) 'Ajustes muestra las alertas activadas, cada 2 minutos'
+$g.CbWatchMinutes.SelectedIndex = [array]::IndexOf($script:WatchMinuteChoices, 5)
+Update-UI
+Assert ((Read-JsonFile $script:SettingsFile).WatchMinutes -eq 5 -and $g.WatchTimer.Interval.TotalMinutes -eq 5) 'Cambiar cada cuánto se revisa la red lo guarda y ajusta la revisión'
+$g.ChkAlertOffline.IsChecked = $false
+Update-UI
+Assert (-not $script:Settings.AlertOffline -and -not $g.ChkAlertNamedOnly.IsEnabled -and $g.Tray.Visible) 'Apagar el aviso de desconexión desactiva «Solo los que tienen nombre»'
+$g.ChkAlertNew.IsChecked = $false
+Update-UI
+Assert (-not $g.Tray.Visible -and -not $g.WatchTimer.IsEnabled -and -not $g.CbWatchMinutes.IsEnabled) 'Con las 2 alertas apagadas no se vigila la red ni se muestra el ícono junto al reloj'
+$g.ChkAlertNew.IsChecked = $true; $g.ChkAlertOffline.IsChecked = $true
+$g.CbWatchMinutes.SelectedIndex = [array]::IndexOf($script:WatchMinuteChoices, 2)
+Update-UI
+Assert ($g.Tray.Visible -and $script:Settings.WatchMinutes -eq 2) 'Se vuelven a activar las alertas'
+$g.WatchTimer.Stop()
+$estadoAntes = $g.TxtStatus.Text
+Invoke-Click $g.BtnTestAlert
+Assert ($g.TxtStatus.Text -match 'Equipo de ejemplo') '«Probar la notificación» muestra un aviso de ejemplo'
+# Para la captura de Ajustes: la línea de estado sin el aviso de ejemplo
+$g.TxtStatus.Text = $estadoAntes
 $upnpItem = $g.ModeItems | Where-Object { $_.Id -eq 'Upnp' }
 Assert ($upnpItem.Available -and $upnpItem.IsActive) 'UPnP aparece disponible y en uso'
 Assert ($g.ModeItems.Count -eq $modeCount) "Ajustes muestra $modeCount modos"

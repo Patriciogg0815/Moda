@@ -1,0 +1,83 @@
+--- a/proyectos.html
++++ b/proyectos.html
+@@ -24,7 +24,7 @@
+ <link rel="preconnect" href="https://fonts.googleapis.com">
+ <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+ <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+-<link rel="stylesheet" href="/style.css?v=36">
++<link rel="stylesheet" href="/style.css?v=37">
+ </head>
+ <body>
+ <header>
+@@ -155,31 +155,43 @@
+ </section>
+ <section class="section alt">
+ <div class="container">
+-    <div class="section-head"><h2>Próximos lanzamientos</h2><p>Apps en revisión o en etapa de pruebas en Google Play y la App Store de Apple.</p></div>
++    <div class="section-head"><h2>Próximos lanzamientos</h2><p>Apps en revisión o en etapa de pruebas en Google Play, la App Store de Apple y la Microsoft Store.</p></div>
+     <div class="grid-2">
+ <article class="app-card">
+     <div class="app-head"><img class="app-icon" src="/img/apps/queveo.webp" alt="Ícono de QuéVeo" width="72" height="72" loading="lazy"><div><h3>QuéVeo</h3><span class="app-cat">Entretenimiento</span></div></div>
+     <p>Recomendador de películas y series: descubre qué ver según tus plataformas de streaming, género y país.</p>
+     <div class="tags"><span class="tag">Capacitor</span><span class="tag">API TMDB</span><span class="tag">AdMob</span></div>
+-    <div class="app-foot"><span class="soon"><svg class="ic" aria-hidden="true"><use href="/img/icons.svg?v=2#i-clock"/></svg> Próximamente en Google Play</span></div>
++    <div class="app-foot"><div class="soon-badges"><span class="soon-badge" title="Próximamente en Google Play"><img src="/img/badges/google-play-pronto.webp" alt="Próximamente en Google Play" width="186" height="58" loading="lazy"></span></div></div>
+ </article>
+ <article class="app-card">
+     <div class="app-head"><img class="app-icon" src="/img/apps/visaprep.webp" alt="Ícono de VisaPrep: Simulador de Entrevista" width="72" height="72" loading="lazy"><div><h3>VisaPrep: Simulador de Entrevista</h3><span class="app-cat">Educación</span></div></div>
+     <p>Practica la entrevista de visa de turismo B1/B2 con un oficial virtual que pregunta por voz y te da retroalimentación.</p>
+     <div class="tags"><span class="tag">IA conversacional</span><span class="tag">Voz</span><span class="tag">AdMob</span></div>
+-    <div class="app-foot"><span class="soon"><svg class="ic" aria-hidden="true"><use href="/img/icons.svg?v=2#i-clock"/></svg> Próximamente en Google Play</span></div>
++    <div class="app-foot"><div class="soon-badges"><span class="soon-badge" title="Próximamente en Google Play"><img src="/img/badges/google-play-pronto.webp" alt="Próximamente en Google Play" width="186" height="58" loading="lazy"></span></div></div>
+ </article>
+ <article class="app-card">
+     <div class="app-head"><img class="app-icon" src="/img/apps/occultarium.webp" alt="Ícono de Occultarium para iPhone y iPad" width="72" height="72" loading="lazy"><div><h3>Occultarium para iPhone y iPad</h3><span class="app-cat">iOS · App Store</span></div></div>
+     <p>El Oráculo con IA, sueños, tarot y la biblioteca esotérica en iPhone y iPad, con la misma cuenta y suscripción.</p>
+     <div class="tags"><span class="tag">Capacitor</span><span class="tag">iOS</span><span class="tag">Swift</span></div>
+-    <div class="app-foot"><span class="soon"><svg class="ic" aria-hidden="true"><use href="/img/icons.svg?v=2#i-clock"/></svg> Próximamente en App Store</span></div>
++    <div class="app-foot"><div class="soon-badges"><span class="soon-badge" title="Próximamente en App Store"><img src="/img/badges/app-store-pronto.webp" alt="Próximamente en App Store" width="205" height="58" loading="lazy"></span></div></div>
+ </article>
+ <article class="app-card">
+     <div class="app-head"><img class="app-icon" src="/img/apps/occultarium.webp" alt="Ícono de Occultarium TV" width="72" height="72" loading="lazy"><div><h3>Occultarium TV</h3><span class="app-cat">Android TV · Apple TV</span></div></div>
+     <p>App nativa para televisores: Oráculo con voz, biblioteca, sonidos ambientales y lector de libros con control remoto.</p>
+     <div class="tags"><span class="tag">Kotlin</span><span class="tag">Jetpack Compose for TV</span><span class="tag">SwiftUI (tvOS)</span></div>
+-    <div class="app-foot"><span class="soon"><svg class="ic" aria-hidden="true"><use href="/img/icons.svg?v=2#i-clock"/></svg> Próximamente en Google Play y App Store</span></div>
++    <div class="app-foot"><div class="soon-badges"><span class="soon-badge" title="Próximamente en Google Play"><img src="/img/badges/google-play-pronto.webp" alt="Próximamente en Google Play" width="186" height="58" loading="lazy"></span><span class="soon-badge" title="Próximamente en App Store"><img src="/img/badges/app-store-pronto.webp" alt="Próximamente en App Store" width="205" height="58" loading="lazy"></span></div></div>
++</article>
++<article class="app-card">
++    <div class="app-head"><img class="app-icon" src="/img/apps/monitorred.webp" alt="Ícono de Monitor de Red de Casa" width="72" height="72" loading="lazy"><div><h3>Monitor de Red de Casa</h3><span class="app-cat">Windows 10/11 · Microsoft Store</span></div></div>
++    <p>Mira todos los equipos conectados a tu red de casa, con su nombre, IP, MAC y fabricante, y cuánto internet se está usando.</p>
++    <div class="tags"><span class="tag">PowerShell + WPF</span><span class="tag">C#</span><span class="tag">UPnP</span><span class="tag">MSIX</span></div>
++    <div class="app-foot"><div class="soon-badges"><span class="soon-badge" title="Próximamente en Microsoft Store"><img src="/img/badges/microsoft-store-pronto.webp" alt="Próximamente en Microsoft Store" width="112" height="58" loading="lazy"></span></div></div>
++</article>
++<article class="app-card">
++    <div class="app-head"><img class="app-icon" src="/img/apps/respaldodrivers.webp" alt="Ícono de RespaldoDrivers" width="72" height="72" loading="lazy"><div><h3>RespaldoDrivers</h3><span class="app-cat">Windows 10/11 · Microsoft Store</span></div></div>
++    <p>Guarda todos los drivers de tu PC organizados por categoría y vuelve a instalarlos después de formatear, sin buscarlos en internet.</p>
++    <div class="tags"><span class="tag">PowerShell + WPF</span><span class="tag">DISM</span><span class="tag">pnputil</span><span class="tag">MSIX</span></div>
++    <div class="app-foot"><div class="soon-badges"><span class="soon-badge" title="Próximamente en Microsoft Store"><img src="/img/badges/microsoft-store-pronto.webp" alt="Próximamente en Microsoft Store" width="112" height="58" loading="lazy"></span></div></div>
+ </article>
+     </div>
+ </div>
+--- a/apprescate.html
++++ b/apprescate.html
+@@ -24,7 +24,7 @@
+ <link rel="preconnect" href="https://fonts.googleapis.com">
+ <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+ <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+-<link rel="stylesheet" href="/style.css?v=36">
++<link rel="stylesheet" href="/style.css?v=37">
+ <script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "AppRescate", "operatingSystem": "Windows 10, Windows 11", "applicationCategory": "UtilitiesApplication", "softwareVersion": "1.0.2", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "downloadUrl": "https://garridoitsolutions.lat/descargas/AppRescate-1.0.2.exe", "author": {"@type": "Organization", "name": "Garrido IT Solutions", "url": "https://garridoitsolutions.lat"}, "installUrl": "https://apps.microsoft.com/detail/9mxgw62b7gb6", "sameAs": "https://apps.microsoft.com/detail/9mxgw62b7gb6", "contentRating": "ESRB: Todos", "inLanguage": ["es", "en", "pt", "fr", "de", "it", "nl", "pl", "ro", "cs", "hu", "el", "sv", "da", "nb", "fi", "tr", "ru", "uk", "ar", "hi", "bn", "th", "vi", "id", "ms", "zh-Hans", "zh-Hant", "ja", "ko"], "image": "https://garridoitsolutions.lat/img/apprescate/app-ventana-grande.webp"}</script>
+ </head>
+ <body>
+--- a/style.css
++++ b/style.css
+@@ -472,3 +472,9 @@
+ .ill-home .card-ill { position: static; display: block; height: 150px; width: auto; max-width: 70%; object-fit: contain; margin: -58px 0 8px -8px; }
+ .ill-home h3 { margin-top: 4px; }
+ @media (max-width: 680px) { .ill-home .card-ill { height: 130px; margin-top: -50px; } }
++
++/* Insignias de tiendas: marco blanco como la de Google Play, y las de "Próximamente" */
++.store-badge img, .soon-badge img { border: 1.5px solid #fff; border-radius: 8px; background: #202020; }
++.soon-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
++.soon-badge { display: inline-flex; border-radius: 8px; cursor: default; }
++.soon-badge img { height: 58px; width: auto; display: block; background: #000; }
