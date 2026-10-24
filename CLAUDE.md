@@ -32,6 +32,7 @@ Respalda los drivers del equipo por categoría y los reinstala después de forma
   en `main` publica en Releases.
 - Microsoft Store: carpeta `store/` (manifiesto, íconos, logos de 300/150/71, arte de superhéroe 16:9,
   `privacidad.html`, `FICHA-TIENDA.md`). Identidad: `GarridoitSolutions.RespaldoDrivers`.
+  **Ya enviada a la Store** (en certificación al 24/10/2026, según el usuario).
 - Tiene el botón "Apoyar a la app" (Ko-fi). Se quitó el `.bat`: el `.exe` es la única forma de usarla.
 - Historia: rama `claude/ecstatic-sagan-19fwe0`, unida a `main` en el PR #1.
 

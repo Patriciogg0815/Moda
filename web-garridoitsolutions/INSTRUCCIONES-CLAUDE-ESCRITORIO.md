@@ -9,8 +9,8 @@ y publicarlos.
 1. En **Próximos lanzamientos**, cambiar las etiquetas "Próximamente en …" por las imágenes de las
    tiendas con la cinta "Coming Soon" (Google Play, App Store y Microsoft Store).
 2. Agregar los proyectos nuevos de Windows con la imagen de Microsoft Store "Coming Soon":
-   **Monitor de Red de Casa** (enviado a la Microsoft Store el 24/10/2026, en certificación) y
-   **RespaldoDrivers**.
+   **Monitor de Red de Casa** y **RespaldoDrivers**. Las dos ya se enviaron a la Microsoft Store y
+   están en certificación (dato del 24/10/2026).
 3. Poner un **marco blanco** como el de la insignia de Google Play en todas las insignias, incluida la de
    Microsoft Store de AppRescate.
 
@@ -41,11 +41,6 @@ Se hicieron a partir de lo que estaba **publicado** el 24/10/2026:
    `/proyectos`, `/apprescate` y también `app-ads.txt` y las políticas de privacidad.
 5. Publica en producción (`--prod`) **solo cuando Patricio lo confirme**.
 6. Cuando sea, cambia la insignia por la de "Disponible" con su enlace a la tienda:
-   - Monitor de Red de Casa, cuando lo aprueben en la Microsoft Store.
+   - Monitor de Red de Casa y RespaldoDrivers, cuando los aprueben en la Microsoft Store.
    - Las demás apps, a medida que se publiquen.
    Si una app pasa a estar publicada, muévela a su sección: Google Play o Programas para Windows.
-
-## Para confirmar con Patricio
-
-- Si **RespaldoDrivers** va de verdad a la Microsoft Store. Tiene su carpeta `store/` lista, pero no
-  consta que se haya enviado. Si no va a la Store, quita su tarjeta o cambia la insignia.
