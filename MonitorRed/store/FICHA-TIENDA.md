@@ -59,16 +59,15 @@ Responde el cuestionario IARC: categoría **"Herramienta o utilidad"** (no es un
 - ¿Violencia, sexo, drogas, apuestas, lenguaje? **No.**
 - ¿Los usuarios pueden comunicarse o compartir contenido entre sí? **No.**
 - ¿Comparte la ubicación del usuario? **No.**
-- ¿Comparte información personal con terceros? **No** (el banner de publicidad no recibe datos de la
-  app; lo que recibe Adsterra al mostrar un anuncio está explicado en la política de privacidad).
+- ¿Comparte información personal con terceros? **No.**
 - ¿Compras digitales? **No.**
 - ¿Navegador web sin restricciones? **No.**
 
 Resultado esperado: **3+ / Para todos (E)**.
 
 ### Publicidad
-La app muestra un banner de Adsterra abajo de la ventana. Si Partner Center pregunta si el producto
-contiene anuncios, responde **Sí**. La descripción y la política de privacidad ya lo mencionan.
+La edición de la Store **no muestra publicidad** (el banner de Adsterra es solo para la versión web).
+Si Partner Center pregunta si el producto contiene anuncios, responde **No**.
 
 ### Paquetes
 Sube **`MonitorRed.msix`** (pestaña **Actions** → ejecución "Monitor de Red" → **Artifacts** →
@@ -82,9 +81,8 @@ Partner Center pedirá justificar `runFullTrust`. Texto sugerido:
 > **runFullTrust:** Monitor de Red es una aplicación de escritorio (WPF) que descubre los equipos de la
 > red local del usuario con los métodos estándar de Windows (ping, tabla ARP, NetBIOS, mDNS y UPnP/SSDP),
 > lee el consumo total de internet que informa el router por UPnP y el consumo del propio equipo. Estas funciones requieren una aplicación de
-> escritorio de plena confianza. No pide permisos de administrador y no instala drivers ni servicios. Para
-> escanear solo se comunica con el router y los equipos de la red del usuario; el único contenido de
-> internet es un banner de publicidad (WebView2) en la parte inferior de la ventana.
+> escritorio de plena confianza. No pide permisos de administrador, no instala drivers ni servicios y no
+> se comunica con servidores externos: solo con el router y los equipos de la red del usuario.
 
 ### Notas para la certificación
 > La aplicación no requiere cuenta. Para probarla: conectar el equipo a una red Wi-Fi o cableada → abrir
@@ -92,8 +90,7 @@ Partner Center pedirá justificar `runFullTrust`. Texto sugerido:
 > MAC y fabricante. Hacer clic en un equipo para ver el detalle y cambiarle el nombre ("Guardar nombre").
 > El consumo de este equipo se muestra siempre. El consumo total de la casa aparece si el router de la red
 > tiene UPnP activado; si no, la app lo indica y sigue funcionando. La app no lee el contenido del tráfico.
-> La parte inferior muestra un banner de publicidad (Adsterra); sin internet no aparece. El botón
-> "Apoyar a la app" abre la página de donaciones (Ko-fi) en el navegador.
+> El botón "Apoyar a la app" abre la página de donaciones (Ko-fi) en el navegador.
 
 ## Paso 3 — Política de privacidad
 
@@ -132,7 +129,7 @@ https://patriciogg0815.github.io/Moda/MonitorRed/store/privacidad.html
 > - No necesitas cambiar nada en el router ni crear una cuenta.
 > - La información de tu red no sale de tu casa: la app no la envía a ningún servidor.
 > - No lee lo que navegan los demás equipos.
-> - Es gratis: se mantiene con un banner de publicidad en la parte de abajo y con el botón "Apoyar a la app".
+> - Gratis y sin publicidad. Si te sirve, puedes apoyarla con el botón "Apoyar a la app".
 >
 > Exporta la lista de equipos a Excel (CSV) cuando la necesites.
 
@@ -150,7 +147,7 @@ no, quita esas frases (la Store rechaza descripciones que prometen funciones que
 - Nombres personalizados para cada equipo
 - Consumo total de internet de la casa por UPnP, sin claves
 - Consumo de internet de esta PC en tiempo real, automático
-- Gratis, sin cuenta y sin enviar los datos de tu red a internet
+- Gratis, sin publicidad, sin cuenta y sin enviar los datos de tu red a internet
 
 **Términos de búsqueda** (máximo 7)
 `red wifi` · `quién usa mi wifi` · `escáner de red` · `dispositivos conectados` · `consumo de internet` · `monitor de red` · `ancho de banda`
