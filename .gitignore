@@ -1,2 +1,4 @@
 # Artefactos de compilación y pruebas locales
 /dist/
+/MonitorRed/webview2/
+/capturas/

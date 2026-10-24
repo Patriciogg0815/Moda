@@ -11,7 +11,8 @@
 param(
     [string]$Fabricantes,
     [switch]$EscaneoReal,
-    [switch]$EdicionStore
+    [switch]$EdicionStore,
+    [string]$WebView2
 )
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
@@ -207,6 +208,18 @@ Assert ($upnpMode.Implemented) 'El modo Total por UPnP está implementado'
 $enc = Protect-Text 'clave123'
 if ($enWindows) { Assert ($enc -and $enc -ne 'clave123' -and (Unprotect-Text $enc) -eq 'clave123') 'La clave del router se guarda cifrada' }
 
+# Publicidad y apoyo
+Assert (Test-SupportConfigured) "El botón «Apoyar a la app» tiene su enlace: $script:SupportUrl"
+Assert (Test-AdPageUri 'https://convertir-ec.netlify.app/app-banner') 'El banner puede navegar dentro de su sitio (también sin .html)'
+Assert (-not (Test-AdPageUri 'https://anunciante.example.com/oferta')) 'Un clic en el anuncio no navega dentro de la app'
+$pruebaAntes = $env:MONITORRED_PRUEBA
+$env:MONITORRED_PRUEBA = '1'
+Assert (-not (Test-AdsEnabled)) 'Las pruebas automáticas no cargan anuncios reales'
+$env:MONITORRED_PRUEBA = $pruebaAntes
+$banner = [IO.File]::ReadAllText((Join-Path (Join-Path (Join-Path $root 'MonitorRed') 'web') 'app-banner.html'))
+Assert ($banner -match "highrevenueformat\.com/(\w+)/invoke\.js" -and $banner -match "'key': '$($Matches[1])'" -and $banner -match "'width': 728") 'app-banner.html carga el banner de 728x90 con su clave'
+Assert ($script:AdPageUrl -match '/app-banner\.html$') "La app busca el banner en $script:AdPageUrl"
+
 # 6. Escaneo real
 if ($EscaneoReal) {
     $net = [MonitorRed.Net]::GetLocalNetworks() | Select-Object -First 1
@@ -377,6 +390,50 @@ $router = $g.ModeItems | Where-Object { $_.Id -eq 'RouterApi' }
 Assert ($router.Reason -match 'TP-Link') "Estado del modo router: $($router.Reason)"
 Invoke-Click $g.BtnBack
 Assert ($g.PageDevices.Visibility -eq 'Visible') 'El botón «Volver» regresa a la lista'
+Assert ($g.BtnSupport.Visibility -eq 'Visible') 'Se muestra el botón «Apoyar a la app»'
+Assert ($g.AdState -eq 'NoDisponible' -and $g.AdBar.Visibility -eq 'Collapsed') "Sin WebView2 o en pruebas no hay franja de publicidad ($($g.AdState))"
+
+# Banner con WebView2, usando una página local de prueba (sin anuncios reales)
+if ($WebView2) {
+    function Wait-AdState([string[]]$States, [int]$Seconds = 60) {
+        $sw = [Diagnostics.Stopwatch]::StartNew()
+        while ($g.AdState -notin $States -and $sw.Elapsed.TotalSeconds -lt $Seconds) { Update-UI; Start-Sleep -Milliseconds 100 }
+    }
+    $script:EmbeddedWebView2 = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path $WebView2).Path))
+    $script:WebView2Ready = $null
+    Assert (Initialize-WebView2) "WebView2 se carga desde las DLL incrustadas ($script:AdError)"
+    $pagina = Join-Path $script:DataDir 'banner-prueba.html'
+    [IO.File]::WriteAllText($pagina, '<!doctype html><html><body style="margin:0;background:#F3F3F3"><div style="width:728px;height:90px;background:#0067C0;color:#fff;font:600 22px Segoe UI;display:flex;align-items:center;justify-content:center">Anuncio de prueba 728 x 90</div></body></html>')
+    $script:AdPageUrl = ([Uri]$pagina).AbsoluteUri
+    $env:MONITORRED_PRUEBA = '0'
+    Start-AdBanner
+    Wait-AdState 'Visible', 'Oculto'
+    Assert ($g.AdState -eq 'Visible' -and $g.AdBar.Visibility -eq 'Visible') "La franja muestra el banner ($($g.AdState) $script:AdError)"
+    try {
+        # WebView2 es una ventana aparte: no sale en RenderTargetBitmap, se fotografía la pantalla
+        for ($i = 0; $i -lt 20; $i++) { Update-UI; Start-Sleep -Milliseconds 50 }
+        # Tipos por nombre: en Linux System.Drawing no existe y un [tipo] literal impediría correr la prueba de lógica
+        Add-Type -AssemblyName System.Drawing
+        $imgFormat = 'System.Drawing.Imaging.ImageFormat' -as [type]
+        $bmp = New-Object System.Drawing.Bitmap([int]$window.ActualWidth, [int]$window.ActualHeight)
+        $gr = ('System.Drawing.Graphics' -as [type])::FromImage($bmp)
+        $gr.CopyFromScreen([int]$window.Left, [int]$window.Top, 0, 0, $bmp.Size)
+        $bmp.Save((Join-Path $out '4-publicidad.png'), $imgFormat::Png)
+        $bmp.Save((Join-Path $out '4-publicidad.jpg'), $imgFormat::Jpeg)
+        $gr.Dispose(); $bmp.Dispose()
+        Write-Host 'Captura guardada: 4-publicidad'
+    } catch { Write-Host "No se pudo capturar la pantalla: $($_.Exception.Message)" }
+
+    $g.AdView.CoreWebView2.Navigate(([Uri](Join-Path $script:DataDir 'no-existe.html')).AbsoluteUri)
+    Wait-AdState 'Oculto'
+    Assert ($g.AdState -eq 'Oculto' -and $g.AdBar.Visibility -eq 'Collapsed') "Si la página no carga, la franja se oculta ($script:AdError)"
+    Assert ($g.AdRetryTimer.IsEnabled) 'Y se vuelve a intentar más tarde'
+    $g.AdRetryTimer.Stop()
+    $g.AdView.CoreWebView2.Navigate($script:AdPageUrl)
+    Wait-AdState 'Visible'
+    Assert ($g.AdState -eq 'Visible') 'Al reintentar con internet, el banner vuelve a aparecer'
+    $env:MONITORRED_PRUEBA = '1'
+}
 
 $window.Close()
 Remove-Item -LiteralPath $script:DataDir -Recurse -Force -ErrorAction SilentlyContinue

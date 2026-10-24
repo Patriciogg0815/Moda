@@ -35,11 +35,12 @@ Respalda los drivers del equipo por categoría y los reinstala después de forma
 - Tiene el botón "Apoyar a la app" (Ko-fi). Se quitó el `.bat`: el `.exe` es la única forma de usarla.
 - Historia: rama `claude/ecstatic-sagan-19fwe0`, unida a `main` en el PR #1.
 
-### 2. Monitor de Red (Windows) — **no está en `main`**
+### 2. Monitor de Red (Windows) — rama `claude/busy-turing-ngdllw` (PR #4 hacia `main`)
 
 Muestra los equipos de la red de la casa (nombre, IP, MAC, fabricante, tipo, en línea / nuevo) y cuánto
 consume cada uno. Mismo estilo que RespaldoDrivers: PowerShell + WPF, con el escáner en C# dentro del `.ps1`.
 
+- Las dos ramas siguientes ya están unidas en `claude/busy-turing-ngdllw`, junto con la publicidad y el botón de donar.
 - **Rama `claude/project-thread-hfo1sm`**: la app (`MonitorRed/`, documentada en `MonitorRed/README.md`),
   el workflow `.github/workflows/monitor-red.yml` y las pruebas en `.github/scripts/Probar-MonitorRed.ps1`.
   - Escaneo: ping + ARP en paralelo, tabla ARP, nombres por DNS inverso, NetBIOS, mDNS y UPnP/SSDP.
@@ -57,8 +58,17 @@ consume cada uno. Mismo estilo que RespaldoDrivers: PowerShell + WPF, con el esc
   logos, arte, maquetas de capturas, privacidad). Salió de `main` **sin** el código de la app: hay que
   unirla con la rama anterior. En `identidad.json`, `IdentityName` sigue en `PENDIENTE` hasta que se
   reserve el nombre ("Monitor de Red"; alternativas en la ficha).
-- Pendiente: unir las dos ramas, llevarlas a `main`, crear los conectores de routers y,
-  si el usuario lo pide, agregar publicidad (ver "Publicidad").
+- **Publicidad y donaciones (hecho):**
+  - Banner Adsterra 728x90 abajo de la ventana, en un WebView2 que carga
+    `https://convertir-ec.netlify.app/app-banner.html`. El archivo está en `MonitorRed/web/app-banner.html` y
+    **el usuario debe subirlo a Netlify**: el código de convertir-ec no está en GitHub.
+  - Las DLL de WebView2 las prepara `MonitorRed/Preparar-WebView2.ps1` (con huella SHA-256 fijada) y
+    `Crear-EXE.ps1` las incrusta.
+  - `MONITORRED_PRUEBA=1` evita anuncios reales en CI.
+  - Botón "Apoyar a la app" (Ko-fi).
+  - Política de privacidad y ficha actualizadas.
+- Pendiente: subir `app-banner.html` a Netlify, llevar el PR #4 a `main` y crear los conectores de routers.
+  El paquete MSIX del Monitor de Red todavía no se genera en `monitor-red.yml`.
 
 ### 3. QuéVeo (Android) — **no está en `main`**
 
@@ -73,15 +83,22 @@ Recomienda películas y series y muestra en qué plataforma verlas (TMDB + JustW
 - AdMob (`www/js/ads.js`): banner abajo + intersticial al tocar, como máximo uno cada 45 s (no aparece en
   Configuración). App `~5987566028`, banner `/2056059870`, intersticial `/2048321010`.
 
-### 4. Convertir.ec (web + app) — fuera de este repositorio
+### 4. Convertir.ec (web + app) — fuera de GitHub
 
-Sitio de herramientas: https://convertir-ec.netlify.app/ (Netlify). Su código no está en este repo.
+Sitio de herramientas: https://convertir-ec.netlify.app/ (Netlify). Su código **no está en ningún repositorio**:
+se subió directo a Netlify. Para trabajar en él, el plan es crear el repo `convertir-ec`, subir los
+archivos (Netlify → Deploys → Download) y conectarlo con Netlify (Link repository).
 
 - Web: **Adsterra**, con dominios `highrevenueformat.com` y `profitableratecpmnetwork.com`, en `/js/common.js`:
   - Banners en iframe: arriba de 728x90 (computadora) / 320x50 (móvil), abajo de 300x250.
   - Social Bar (`pl31407294.profitableratecpmnetwork.com`).
   - Direct Link: al hacer clic en una herramienta abre una pestaña, como máximo una vez cada 60 s.
 - App: Google AdMob, con el mismo esquema que QuéVeo.
+
+### 5. ConsultaEC (web) — repo `Patriciogg0815/consultaec`
+
+Otro sitio: https://consultaec.netlify.app/ (validador de cédula/RUC y calculadoras laborales de Ecuador).
+Usa Google AdSense (`pub-6398797687169342`, en `ads.txt`). Es HTML/CSS/JS puro.
 
 ## Publicidad: decisiones
 

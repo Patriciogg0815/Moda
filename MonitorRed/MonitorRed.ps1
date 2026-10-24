@@ -51,6 +51,21 @@ $script:OuiFileName = 'fabricantes.gz'
 # Edición para la Microsoft Store: sin el modo de interceptar tráfico (Crear-EXE.ps1 -EdicionStore la activa)
 $script:StoreEdition = $false
 
+# Página de Ko-fi para el botón "Apoyar a la app" (si dice PENDIENTE, el botón no se muestra)
+$script:SupportUrl = 'https://ko-fi.com/garridoitsolutions'
+
+# Publicidad: página con un banner de Adsterra de 728x90 (archivo MonitorRed/web/app-banner.html), publicada en
+# el sitio aprobado en Adsterra. Si dice PENDIENTE, o la página no carga, la franja de publicidad no se muestra.
+$script:AdPageUrl = 'https://convertir-ec.netlify.app/app-banner.html'
+# Cada cuánto se vuelve a intentar si la página no cargó (por ejemplo, sin internet al abrir la app)
+$script:AdRetryMinutes = 5
+
+# WebView2 (navegador Edge incrustado) para mostrar el banner. Crear-EXE.ps1 incrusta aquí sus DLL en un .zip;
+# si está vacío se buscan en la carpeta "webview2" junto al script. Sin ellas la app funciona igual, sin publicidad.
+$script:WebView2Version = '1.0.3912.50'
+$script:EmbeddedWebView2 = ''
+$script:WebView2Ready = $null
+
 # Ruta del script (o del .exe si se compiló con ps2exe)
 $script:ScriptPath = if ($PSCommandPath) { $PSCommandPath } else { [Diagnostics.Process]::GetCurrentProcess().MainModule.FileName }
 $script:ScriptDir  = Split-Path -Parent $script:ScriptPath
@@ -2085,7 +2100,7 @@ function Invoke-ConsoleScan {
 $script:Xaml = @'
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Monitor de Red" Width="1220" Height="780" MinWidth="980" MinHeight="620"
+        Title="Monitor de Red" Width="1220" Height="860" MinWidth="980" MinHeight="680"
         WindowStartupLocation="CenterScreen" Background="#F3F3F3"
         FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13" Foreground="#1A1A1A"
         TextOptions.TextFormattingMode="Display" UseLayoutRounding="True">
@@ -2356,6 +2371,7 @@ $script:Xaml = @'
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
 
     <!-- ===== Encabezado ===== -->
@@ -2364,6 +2380,7 @@ $script:Xaml = @'
         <ColumnDefinition Width="Auto"/>
         <ColumnDefinition Width="Auto"/>
         <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
         <ColumnDefinition Width="Auto"/>
         <ColumnDefinition Width="Auto"/>
         <ColumnDefinition Width="Auto"/>
@@ -2393,6 +2410,13 @@ $script:Xaml = @'
         <StackPanel Orientation="Horizontal">
           <TextBlock Style="{StaticResource Icon}" Text="&#xE713;" Margin="0,0,8,0"/>
           <TextBlock Text="Ajustes"/>
+        </StackPanel>
+      </Button>
+      <Button x:Name="BtnSupport" Grid.Column="6" Style="{StaticResource SubtleButton}" Padding="12,8" Margin="10,0,0,0"
+              VerticalAlignment="Center" Visibility="Collapsed" ToolTip="Abre la página de apoyo en tu navegador">
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Style="{StaticResource Icon}" Text="&#xEB52;" Foreground="#FF5E5B" Margin="0,0,8,0"/>
+          <TextBlock Text="Apoyar a la app" FontWeight="SemiBold"/>
         </StackPanel>
       </Button>
     </Grid>
@@ -2639,6 +2663,14 @@ $script:Xaml = @'
         </Border>
       </StackPanel>
     </ScrollViewer>
+
+    <!-- ===== Publicidad (banner de 728x90 en un WebView2, ver Start-AdBanner) ===== -->
+    <Border x:Name="AdBar" Grid.Row="3" BorderBrush="{StaticResource CardBorder}" BorderThickness="0,1,0,0" Padding="0,4,0,8" Visibility="Collapsed">
+      <StackPanel HorizontalAlignment="Center">
+        <TextBlock Text="Publicidad" FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,3"/>
+        <ContentControl x:Name="AdHost" Width="728" Height="90"/>
+      </StackPanel>
+    </Border>
   </Grid>
 </Window>
 '@
@@ -3346,7 +3378,7 @@ function Update-SettingsPage {
                 }
             }
         }
-        $g.TxtAbout.Text = "$script:AppName $script:AppVersion`nFabricantes conocidos: $([MonitorRed.OuiDatabase]::Count) bloques de direcciones MAC (registro público de la IEEE).`nTus nombres y ajustes se guardan en: $script:DataDir"
+        $g.TxtAbout.Text = "$script:AppName $script:AppVersion`nFabricantes conocidos: $([MonitorRed.OuiDatabase]::Count) bloques de direcciones MAC (registro público de la IEEE).`nTus nombres y ajustes se guardan en: $script:DataDir`nLa app es gratis gracias a la publicidad de abajo (la muestra Adsterra) y al apoyo de quienes la usan."
         Update-MeasurementUi
     } finally {
         $g.LoadingSettings = $false
@@ -3381,6 +3413,156 @@ function New-ComboItem([string]$Text, $Tag) {
     $item.Tag = $Tag
     $item
 }
+
+#region Publicidad y apoyo
+
+function Test-SupportConfigured { $script:SupportUrl -and $script:SupportUrl -notmatch 'PENDIENTE' }
+
+# Abre un enlace con explorer.exe, para que el navegador no se abra con permisos de administrador (modo Interceptar)
+function Open-ExternalLink([string]$Url) {
+    if ($Url -notmatch '^https?://') { return }
+    try { Start-Process explorer.exe -ArgumentList "`"$Url`"" } catch { }
+}
+
+# Carpeta con las DLL de WebView2: las incrustadas en el .exe se extraen una vez en %LOCALAPPDATA%
+function Get-WebView2Folder {
+    if (-not [Environment]::Is64BitProcess) { return $null }   # se incluye solo WebView2Loader.dll de 64 bits
+    if (-not $script:EmbeddedWebView2) {
+        $dir = Join-Path $script:ScriptDir 'webview2'
+        if (Test-Path -LiteralPath (Join-Path $dir 'Microsoft.Web.WebView2.Wpf.dll')) { return $dir }
+        return $null
+    }
+    $dir = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) "MonitorRed\WebView2\$script:WebView2Version"
+    if (Test-Path -LiteralPath (Join-Path $dir 'Microsoft.Web.WebView2.Wpf.dll')) { return $dir }
+    # Se extrae en una carpeta temporal y se renombra al final, para no dejar una copia a medias
+    $tmp = "$dir.tmp$PID"
+    New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+    try {
+        Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+        $zip = "$tmp.zip"
+        [IO.File]::WriteAllBytes($zip, [Convert]::FromBase64String($script:EmbeddedWebView2))
+        try { [IO.Compression.ZipFile]::ExtractToDirectory($zip, $tmp) } finally { Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue }
+        if (-not (Test-Path -LiteralPath $dir)) { Move-Item -LiteralPath $tmp -Destination $dir }
+    } finally {
+        Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    $dir
+}
+
+# Carga WebView2. Devuelve $false (y la app sigue sin publicidad) si faltan las DLL o el WebView2 Runtime de
+# Windows, que viene con Windows 11 y con Microsoft Edge en Windows 10.
+function Initialize-WebView2 {
+    if ($null -ne $script:WebView2Ready) { return $script:WebView2Ready }
+    $script:WebView2Ready = $false
+    try {
+        $dir = Get-WebView2Folder
+        if (-not $dir) { $script:AdError = 'Sin las DLL de WebView2'; return $false }
+        Add-Type -Path (Join-Path $dir 'Microsoft.Web.WebView2.Core.dll')
+        Add-Type -Path (Join-Path $dir 'Microsoft.Web.WebView2.Wpf.dll')
+        [Microsoft.Web.WebView2.Core.CoreWebView2Environment]::SetLoaderDllFolderPath($dir)
+        [void][Microsoft.Web.WebView2.Core.CoreWebView2Environment]::GetAvailableBrowserVersionString()
+        $script:WebView2Ready = $true
+    } catch {
+        $script:AdError = "WebView2 no disponible: $($_.Exception.Message)"
+    }
+    $script:WebView2Ready
+}
+
+function Test-AdsEnabled {
+    # Las pruebas automáticas (GitHub Actions) no cargan anuncios reales: serían impresiones inválidas
+    $script:AdPageUrl -and $script:AdPageUrl -notmatch 'PENDIENTE' -and $env:MONITORRED_PRUEBA -ne '1'
+}
+
+# Solo se navega dentro del sitio del banner; un clic en el anuncio se abre en el navegador del usuario
+function Test-AdPageUri([string]$Uri) {
+    try { ([Uri]$Uri).Host -eq ([Uri]$script:AdPageUrl).Host } catch { $false }
+}
+
+function Hide-AdBanner([string]$Reason) {
+    $g = $script:Gui
+    $g.AdBar.Visibility = 'Collapsed'
+    $g.AdState = 'Oculto'
+    $script:AdError = $Reason
+    # Si ya había WebView2 (por ejemplo, no había internet), se vuelve a intentar más tarde
+    if ($g.AdView -and $g.AdView.CoreWebView2 -and $g.AdRetryTimer) { $g.AdRetryTimer.Start() }
+}
+
+function Start-AdBanner {
+    $g = $script:Gui
+    if (-not (Test-AdsEnabled) -or -not (Initialize-WebView2)) {
+        $g.AdBar.Visibility = 'Collapsed'
+        $g.AdState = 'NoDisponible'
+        return
+    }
+    $g.AdState = 'Cargando'
+    # La franja se muestra antes de crear el control: WebView2 se inicia recién cuando está en la ventana
+    $g.AdBar.Visibility = 'Visible'
+
+    $g.AdRetryTimer = New-Object System.Windows.Threading.DispatcherTimer
+    $g.AdRetryTimer.Interval = [TimeSpan]::FromMinutes($script:AdRetryMinutes)
+    $g.AdRetryTimer.Add_Tick({
+        $g = $script:Gui
+        $g.AdRetryTimer.Stop()
+        if ($g.AdView -and $g.AdView.CoreWebView2) { $g.AdView.CoreWebView2.Navigate($script:AdPageUrl) }
+    })
+
+    $wv = New-Object Microsoft.Web.WebView2.Wpf.WebView2
+    $props = New-Object Microsoft.Web.WebView2.Wpf.CoreWebView2CreationProperties
+    $props.UserDataFolder = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'MonitorRed\Navegador'
+    $wv.CreationProperties = $props
+    $wv.Add_CoreWebView2InitializationCompleted({
+        param($s, $e)
+        if (-not $e.IsSuccess) {
+            $msg = if ($e.InitializationException) { $e.InitializationException.Message } else { 'error desconocido' }
+            Hide-AdBanner "No se pudo iniciar WebView2: $msg"
+            return
+        }
+        $core = $s.CoreWebView2
+        $core.Settings.AreDefaultContextMenusEnabled = $false
+        $core.Settings.AreDevToolsEnabled = $false
+        $core.Settings.IsStatusBarEnabled = $false
+        $core.Settings.IsZoomControlEnabled = $false
+        $core.Settings.AreBrowserAcceleratorKeysEnabled = $false
+        # Solo se abre el navegador si la persona hizo clic; las ventanas que el anuncio abre solo se bloquean
+        $core.add_NewWindowRequested({
+            param($c, $a)
+            $a.Handled = $true
+            if ($a.IsUserInitiated) { Open-ExternalLink $a.Uri }
+        })
+        $core.add_NavigationStarting({
+            param($c, $a)
+            if (-not (Test-AdPageUri $a.Uri)) {
+                $a.Cancel = $true
+                Open-ExternalLink $a.Uri
+            }
+        })
+    })
+    $wv.Add_NavigationCompleted({
+        param($s, $e)
+        $g = $script:Gui
+        if ($e.IsSuccess -and $e.HttpStatusCode -lt 400) {
+            $g.AdBar.Visibility = 'Visible'
+            $g.AdState = 'Visible'
+            $script:AdError = $null
+        } else {
+            Hide-AdBanner "La página del banner no cargó ($($e.WebErrorStatus), HTTP $($e.HttpStatusCode))"
+        }
+    })
+    $g.AdView = $wv
+    $g.AdHost.Content = $wv
+    $wv.Source = New-Object Uri $script:AdPageUrl
+}
+
+function Stop-AdBanner {
+    $g = $script:Gui
+    if ($g.AdRetryTimer) { $g.AdRetryTimer.Stop() }
+    if ($g.AdView) {
+        try { $g.AdView.Dispose() } catch { }
+        $g.AdView = $null
+    }
+}
+
+#endregion
 
 function New-MainWindow {
     Initialize-GuiTypes
@@ -3499,6 +3681,8 @@ function New-MainWindow {
     }
     $g.ChkIntercept.Add_Checked($consent)
     $g.ChkIntercept.Add_Unchecked($consent)
+    $g.BtnSupport.Add_Click({ Open-ExternalLink $script:SupportUrl })
+    $g.BtnSupport.Visibility = if (Test-SupportConfigured) { 'Visible' } else { 'Collapsed' }
     $g.BtnOpenData.Add_Click({
         New-Item -ItemType Directory -Path $script:DataDir -Force | Out-Null
         Start-Process explorer.exe -ArgumentList "`"$script:DataDir`""
@@ -3511,11 +3695,14 @@ function New-MainWindow {
         $g.MeasureTimer.Stop()
         Stop-UpnpPoll
         Stop-InterceptCapture
+        Stop-AdBanner
         Save-KnownDevices
     })
 
     $window.Add_ContentRendered({
         $script:Gui.MeasureTimer.Start()
+        # La publicidad nunca debe impedir usar la app
+        try { Start-AdBanner } catch { $script:Gui.AdBar.Visibility = 'Collapsed'; $script:Gui.AdState = 'NoDisponible'; $script:AdError = $_.Exception.Message }
         if (-not $script:AutoScan) { return }
         if (-not (Import-OuiDatabase)) { Start-OuiDownload }
         Start-NetworkScan

@@ -37,7 +37,7 @@ Requisitos: Windows 10 u 11, conectado al Wi-Fi o al cable de la casa.
 
 ## Cómo escanea
 
-Todo ocurre dentro de la red local; no se envía nada a internet.
+Todo ocurre dentro de la red local; los datos de la red no se envían a internet.
 
 1. Elige la red del equipo (la que tiene router; descarta adaptadores virtuales y VPN). Redes de hasta
    1022 equipos (/22) se escanean completas; las más grandes, solo la /24 del propio equipo.
@@ -83,6 +83,29 @@ Cada modo es una entrada de `$script:MeasurementModes` en `MonitorRed.ps1` con l
 los ajustes, la lista de equipos y si la app corre como administrador. Para el modo 1, cada marca es un
 conector en `$script:RouterConnectors` (`Brand`, `Match`, `Login`, `ReadUsage`).
 
+## Publicidad y donaciones
+
+La app es gratis y se mantiene con dos cosas:
+
+- **Banner de publicidad** de 728x90 en la parte de abajo de la ventana. Es la página
+  [`web/app-banner.html`](web/app-banner.html) con un banner de **Adsterra**, mostrada con **WebView2** (el
+  navegador Edge incrustado de Windows). La página debe estar publicada en el sitio aprobado en Adsterra:
+  `https://convertir-ec.netlify.app/app-banner.html` (`$script:AdPageUrl`).
+  - Si la página no carga (sin internet, página no publicada, falta WebView2), la franja se oculta y la app
+    funciona igual. Si ya había cargado WebView2, lo vuelve a intentar cada 5 minutos.
+  - Un clic en el anuncio se abre en el navegador del usuario. Las ventanas que el anuncio abra solo (sin
+    clic) se bloquean, y no se usan Direct Link ni Social Bar (la Microsoft Store rechaza anuncios que abren
+    ventanas solos).
+  - El banner no recibe ningún dato de la app. Sus cookies quedan en `%LOCALAPPDATA%\MonitorRed\Navegador`.
+  - Las DLL de WebView2 (paquete oficial de Microsoft en NuGet, versión `$script:WebView2Version`) las prepara
+    [`Preparar-WebView2.ps1`](Preparar-WebView2.ps1), que comprueba su huella SHA-256. `Crear-EXE.ps1` las
+    incrusta en el `.exe`, y la app las extrae una vez en `%LOCALAPPDATA%\MonitorRed\WebView2\<versión>`.
+  - Con la variable de entorno `MONITORRED_PRUEBA=1` (la usa GitHub Actions) no se cargan anuncios reales,
+    para no generar impresiones inválidas.
+  - ⚠️ No hagas clic en tus propios anuncios: Adsterra lo cuenta como fraude y puede cerrar la cuenta.
+- **Botón "Apoyar a la app"** arriba a la derecha: abre https://ko-fi.com/garridoitsolutions
+  (`$script:SupportUrl`).
+
 ## Datos que guarda
 
 En `%APPDATA%\MonitorRed\`:
@@ -95,7 +118,9 @@ En `%APPDATA%\MonitorRed\`:
 - Código: [`MonitorRed.ps1`](MonitorRed.ps1) (PowerShell 5.1 + WPF; el escáner está en C# dentro del mismo
   archivo para que sea rápido y en paralelo). Para probarlo sin compilar: clic derecho → **Ejecutar con PowerShell**.
 - Compilar: `powershell -ExecutionPolicy Bypass -File .\MonitorRed\Crear-EXE.ps1` (descarga la base de
-  fabricantes, la incrusta y genera `MonitorRed.exe` con [ps2exe](https://github.com/MScholtes/PS2EXE)).
+  fabricantes y WebView2, los incrusta y genera `MonitorRed.exe` con [ps2exe](https://github.com/MScholtes/PS2EXE)).
+- Para ver el banner sin compilar: `.\MonitorRed\Preparar-WebView2.ps1 -Destino $env:TEMP\wv2.zip -Carpeta .\MonitorRed\webview2`
+  (la carpeta `webview2` junto al script no se sube a GitHub).
 - Pruebas: [`.github/scripts/Probar-MonitorRed.ps1`](../.github/scripts/Probar-MonitorRed.ps1) prueba la
   lógica en cualquier sistema y la ventana en Windows (con capturas). El workflow
   [`monitor-red.yml`](../.github/workflows/monitor-red.yml) la ejecuta, hace un escaneo real y compila.

@@ -1,16 +1,19 @@
 ﻿<#
     Genera MonitorRed.exe a partir de MonitorRed.ps1 usando el módulo ps2exe.
-    Antes incrusta la base de fabricantes por MAC, para que la app funcione sin internet.
+    Antes incrusta la base de fabricantes por MAC, para que la app funcione sin internet, y las DLL de WebView2
+    que muestran el banner de publicidad.
     Ejecutar en Windows PowerShell:  powershell -ExecutionPolicy Bypass -File .\Crear-EXE.ps1
 
     -EdicionStore   Genera la edición para la Microsoft Store (sin el modo de interceptar tráfico).
     -Fabricantes    Usa un fabricantes.gz ya generado en vez de descargarlo.
+    -WebView2       Usa un webview2.zip ya preparado (Preparar-WebView2.ps1) en vez de descargarlo.
 #>
 param(
     [string]$Version = '1.0.0',
     [string]$OutputDir = $PSScriptRoot,
     [switch]$EdicionStore,
-    [string]$Fabricantes
+    [string]$Fabricantes,
+    [string]$WebView2
 )
 $ErrorActionPreference = 'Stop'
 if (-not (Get-Module -ListAvailable -Name ps2exe)) {
@@ -33,11 +36,22 @@ try {
     }
     $oui = [Convert]::ToBase64String([IO.File]::ReadAllBytes($Fabricantes))
 
+    # 1b. DLL de WebView2 para el banner de publicidad (paquete oficial de Microsoft en NuGet)
+    if (-not $WebView2) {
+        $WebView2 = Join-Path $work 'webview2.zip'
+        & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Preparar-WebView2.ps1') -Destino $WebView2
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path $WebView2)) { throw 'No se pudo preparar WebView2.' }
+    }
+    $webView2Zip = [Convert]::ToBase64String([IO.File]::ReadAllBytes($WebView2))
+
     # 2. Copia del script con la base incrustada (y la edición elegida)
     $text = [IO.File]::ReadAllText($source, [Text.Encoding]::UTF8)
     $marker = "`$script:EmbeddedOui = ''"
     if (-not $text.Contains($marker)) { throw "No se encontró $marker en MonitorRed.ps1" }
     $text = $text.Replace($marker, "`$script:EmbeddedOui = '$oui'")
+    $wvMarker = "`$script:EmbeddedWebView2 = ''"
+    if (-not $text.Contains($wvMarker)) { throw "No se encontró $wvMarker en MonitorRed.ps1" }
+    $text = $text.Replace($wvMarker, "`$script:EmbeddedWebView2 = '$webView2Zip'")
     $text = $text.Replace("`$script:AppVersion = '1.0.0'", "`$script:AppVersion = '$Version'")
     if ($EdicionStore) {
         $storeMarker = "`$script:StoreEdition = `$false"
