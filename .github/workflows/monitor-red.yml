@@ -1,0 +1,119 @@
+# Monitor de Red: prueba y compila MonitorRed.exe en Windows.
+# - En cada cambio: prueba la lógica, un escaneo real de la red del runner y la ventana (capturas en "Artifacts").
+# - Genera MonitorRed.exe (con la base de fabricantes por MAC incluida) y la edición para la Microsoft Store.
+# - En la rama main: además publica una versión descargable en "Releases" (tag monitor-red-v1.0.N).
+name: Monitor de Red
+
+on:
+  push:
+    paths:
+      - 'MonitorRed/**'
+      - '.github/workflows/monitor-red.yml'
+      - '.github/scripts/Probar-MonitorRed.ps1'
+  pull_request:
+    paths:
+      - 'MonitorRed/**'
+      - '.github/workflows/monitor-red.yml'
+      - '.github/scripts/Probar-MonitorRed.ps1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    env:
+      VERSION: 1.0.${{ github.run_number }}
+      # La app no carga anuncios reales en las pruebas: desde GitHub serían impresiones inválidas para Adsterra
+      MONITORRED_PRUEBA: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolución de pantalla para las capturas
+        shell: powershell
+        continue-on-error: true
+        run: Set-DisplayResolution -Width 1920 -Height 1080 -Force
+
+      - name: Generar la base de fabricantes por MAC
+        shell: powershell
+        run: .\MonitorRed\MonitorRed.ps1 -GenerarFabricantes dist\fabricantes.gz
+
+      - name: Preparar WebView2 (banner de publicidad)
+        shell: powershell
+        run: .\MonitorRed\Preparar-WebView2.ps1 -Destino dist\webview2.zip
+
+      - name: Probar la lógica, un escaneo real, la ventana y el banner
+        shell: powershell
+        run: .\.github\scripts\Probar-MonitorRed.ps1 -Fabricantes dist\fabricantes.gz -EscaneoReal -WebView2 dist\webview2.zip
+
+      - name: Probar la edición para la Microsoft Store
+        shell: powershell
+        run: .\.github\scripts\Probar-MonitorRed.ps1 -Fabricantes dist\fabricantes.gz -EdicionStore
+
+      - name: Capturas en el registro
+        if: always()
+        shell: powershell
+        run: |
+          Get-ChildItem capturas -Filter *.jpg -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+            $b64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($_.FullName))
+            Write-Host "::group::$($_.Name)"
+            for ($i = 0; $i -lt $b64.Length; $i += 4000) { Write-Host ("B64|{0}|{1}" -f ($_.FullName.Substring((Resolve-Path capturas).Path.Length + 1) -replace '\\', '-' -replace '\.jpg$', ''), $b64.Substring($i, [Math]::Min(4000, $b64.Length - $i))) }
+            Write-Host '::endgroup::'
+          }
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: capturas-monitor-red
+          path: capturas/**/*.png
+          if-no-files-found: ignore
+
+      - name: Instalar ps2exe
+        shell: powershell
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module ps2exe -Scope CurrentUser -Force
+
+      - name: Generar MonitorRed.exe
+        shell: powershell
+        run: |
+          .\MonitorRed\Crear-EXE.ps1 -Version $env:VERSION -OutputDir dist\exe -Fabricantes dist\fabricantes.gz -WebView2 dist\webview2.zip
+          .\MonitorRed\Crear-EXE.ps1 -Version $env:VERSION -OutputDir dist\store -Fabricantes dist\fabricantes.gz -WebView2 dist\webview2.zip -EdicionStore
+
+      - name: Probar que el .exe abre su ventana
+        shell: powershell
+        run: |
+          $p = Start-Process -FilePath dist\exe\MonitorRed.exe -PassThru
+          Start-Sleep -Seconds 20
+          $p.Refresh()
+          if ($p.HasExited) { throw "MonitorRed.exe se cerró solo (código $($p.ExitCode))" }
+          $title = $p.MainWindowTitle
+          Stop-Process -Id $p.Id -Force
+          if ($title -ne 'Monitor de Red') { throw "Se esperaba la ventana 'Monitor de Red' y apareció '$title'" }
+          Write-Host "OK: MonitorRed.exe abrió su ventana ($title)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MonitorRed-${{ env.VERSION }}
+          path: dist/exe/MonitorRed.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MonitorRed-EdicionStore-${{ env.VERSION }}
+          path: dist/store/MonitorRed.exe
+
+      - name: Publicar versión
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: monitor-red-v${{ env.VERSION }}
+          target_commitish: ${{ github.sha }}
+          name: Monitor de Red ${{ env.VERSION }}
+          make_latest: false
+          body: |
+            **Descarga `MonitorRed.exe`** y ábrelo con doble clic: escanea la red de tu casa y muestra todos los equipos conectados.
+            Es la aplicación completa en un solo archivo: no necesita instalarse ni permisos de administrador.
+
+            Como el .exe no está firmado digitalmente, Windows puede mostrar "Windows protegió su PC": elige **Más información → Ejecutar de todas formas**.
+          files: dist/exe/MonitorRed.exe
