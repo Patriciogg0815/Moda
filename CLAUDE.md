@@ -135,6 +135,12 @@ publican desde la PC** (por ejemplo Occultarium): se pisaría lo que está en pr
     e iPhone/iPad (Capacitor; sin Mac: el `.ipa` se compila con GitHub Actions y se instala con Sideloadly).
 - **garridoitsolutions.lat** — sitio de la empresa (Netlify CLI desde la PC). Tiene las **políticas de
   privacidad de las apps de Play** y el `app-ads.txt` de AdMob: no romperlos.
+  - 24/10/2026, pendiente de aplicar en la PC: en `/proyectos`, insignias "Coming Soon" de Google Play,
+    App Store y Microsoft Store, tarjetas nuevas de Monitor de Red de Casa y RespaldoDrivers, y marco
+    blanco en todas las insignias. Los archivos y los pasos están en `web-garridoitsolutions/`
+    (`INSTRUCCIONES-CLAUDE-ESCRITORIO.md`) de la rama `claude/happy-albattani-7ms4ny`.
+    Desde la web no se puede publicar este sitio: lo que no se pueda hacer aquí se deja a Claude de
+    escritorio con instrucciones en el repo.
 - **ConsultaEC** y **Convertir.ec** — ver arriba. El backend Office↔PDF de Convertir.ec corre en Docker en
   el VPS del usuario (lo instala `setup/convertir-api.sh`).
 - **Buzón de sugerencias** (colegio, login con Google del dominio del colegio), **SpeakCoach** (tutor de
