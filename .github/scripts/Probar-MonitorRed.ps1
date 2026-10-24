@@ -37,6 +37,8 @@ foreach ($st in $ast.EndBlock.Statements) {
     }
 }
 $script:ScriptDir = Join-Path $root 'MonitorRed'
+# Nombre de ejemplo para este equipo: en las capturas de la Store no debe salir el de la máquina de GitHub
+$script:SelfName = 'DESKTOP-SALA'
 if ($EdicionStore) {
     $script:StoreEdition = $true
     $script:MeasurementModes = @($script:MeasurementModes | Where-Object { $_.Id -ne 'Intercept' })

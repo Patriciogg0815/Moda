@@ -35,7 +35,7 @@ Respalda los drivers del equipo por categoría y los reinstala después de forma
 - Tiene el botón "Apoyar a la app" (Ko-fi). Se quitó el `.bat`: el `.exe` es la única forma de usarla.
 - Historia: rama `claude/ecstatic-sagan-19fwe0`, unida a `main` en el PR #1.
 
-### 2. Monitor de Red (Windows) — rama `claude/busy-turing-ngdllw` (PR #4 hacia `main`)
+### 2. Monitor de Red (Windows) — en `main` · en la Microsoft Store como "Monitor de Red de Casa"
 
 Muestra los equipos de la red de la casa (nombre, IP, MAC, fabricante, tipo, en línea / nuevo) y cuánto
 consume cada uno. Mismo estilo que RespaldoDrivers: PowerShell + WPF, con el escáner en C# dentro del `.ps1`.
@@ -67,8 +67,16 @@ consume cada uno. Mismo estilo que RespaldoDrivers: PowerShell + WPF, con el esc
   - `MONITORRED_PRUEBA=1` evita anuncios reales en CI.
   - Botón "Apoyar a la app" (Ko-fi).
   - Política de privacidad y ficha actualizadas.
-- Pendiente: llevar el PR #4 a `main` y crear los conectores de routers.
-  El paquete MSIX del Monitor de Red todavía no se genera en `monitor-red.yml`.
+- PR #4 unido a `main` (versión publicada `monitor-red-v1.0.16`).
+- Microsoft Store: `monitor-red.yml` genera y prueba `MonitorRed.msix`, y arma el artifact
+  `MicrosoftStore-MonitorRed-1.0.N` (msix, logos, arte, capturas reales de la edición Store y la ficha).
+  Nombre reservado en Partner Center: **Monitor de Red de Casa**, identidad
+  `GarridoitSolutions.MonitordeReddeCasa` (PFN `GarridoitSolutions.MonitordeReddeCasa_qketwn0rzx7t0`).
+  Ya completa en `MonitorRed/store/identidad.json`: el `.msix` del kit sirve para enviar.
+  **Enviado a la Store el 24/10/2026** con el kit 1.0.29 (en certificación, 1 a 3 días hábiles). Si la
+  rechazan, el usuario trae el informe de Partner Center para corregirlo. Para actualizar: nuevo envío con
+  el `.msix` más reciente del artifact `MicrosoftStore-MonitorRed-1.0.N`.
+- Pendiente: conectores de routers (modo 1).
 
 ### 3. QuéVeo (Android) — **no está en `main`**
 
@@ -113,6 +121,9 @@ Usa Google AdSense (`pub-6398797687169342`, en `ads.txt`). Es HTML/CSS/JS puro.
 - En apps de escritorio, **solo banners**: nada de Direct Link ni Social Bar, porque la Microsoft Store
   rechaza los anuncios que abren ventanas solos o tapan el contenido. Hay que confirmar con Adsterra que
   permite mostrar sus anuncios dentro de una app.
+- **La edición Store del Monitor de Red mantiene el banner de Adsterra** (decisión del usuario, 24/10/2026).
+  Se envió así a la Store, y la política y la ficha lo declaran. Por eso se cerraron los PR #5 y #6, que
+  quitaban la publicidad. No volver a quitarla salvo que el usuario lo pida o que la certificación lo objete.
 - En AdMob, el usuario no debe tocar sus propios anuncios (clics inválidos). Para probar, usar los IDs de
   prueba de Google.
 

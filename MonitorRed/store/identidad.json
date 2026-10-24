@@ -1,7 +1,7 @@
 {
-  "_instrucciones": "Valores de Partner Center > Monitor de Red > Identidad del producto. Publisher y PublisherDisplayName son los mismos de RespaldoDrivers (misma cuenta). IdentityName aparece al reservar el nombre. DisplayName debe ser igual al nombre reservado en la Store.",
-  "IdentityName": "PENDIENTE",
+  "_instrucciones": "Valores de Partner Center > Monitor de Red de Casa > Identidad del producto. Publisher y PublisherDisplayName son los mismos de RespaldoDrivers (misma cuenta). IdentityName aparece al reservar el nombre. DisplayName debe ser igual al nombre reservado en la Store.",
+  "IdentityName": "GarridoitSolutions.MonitordeReddeCasa",
   "Publisher": "CN=97E71BB8-34DD-4461-A440-AFE4AC83ADB3",
   "PublisherDisplayName": "GarridoitSolutions",
-  "DisplayName": "Monitor de Red"
+  "DisplayName": "Monitor de Red de Casa"
 }

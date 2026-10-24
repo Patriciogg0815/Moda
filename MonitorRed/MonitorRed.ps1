@@ -70,6 +70,9 @@ $script:WebView2Ready = $null
 $script:ScriptPath = if ($PSCommandPath) { $PSCommandPath } else { [Diagnostics.Process]::GetCurrentProcess().MainModule.FileName }
 $script:ScriptDir  = Split-Path -Parent $script:ScriptPath
 
+# Nombre con el que aparece este equipo en la lista (las pruebas ponen uno de ejemplo para las capturas)
+$script:SelfName = [Environment]::MachineName
+
 # Datos del usuario: nombres puestos a mano, equipos vistos y ajustes
 $script:DataDir      = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'MonitorRed'
 $script:DevicesFile  = Join-Path $script:DataDir 'dispositivos.json'
@@ -217,7 +220,7 @@ function Get-DeviceGuess {
 
 function Get-AutoName {
     param($Record, [string]$HostName, [string]$Vendor, [string]$TypeKey)
-    if ($Record.IsSelf) { return "$([Environment]::MachineName) (este equipo)" }
+    if ($Record.IsSelf) { return "$script:SelfName (este equipo)" }
     $upnp = Get-UpnpSummary $Record
     if ($upnp -and $upnp.FriendlyName -and $upnp.FriendlyName -notmatch '^(uuid:|[0-9a-f-]{20,})') { return $upnp.FriendlyName }
     if ($HostName) { return $HostName }

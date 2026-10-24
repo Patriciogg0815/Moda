@@ -1,6 +1,7 @@
 # Monitor de Red: prueba y compila MonitorRed.exe en Windows.
 # - En cada cambio: prueba la lógica, un escaneo real de la red del runner y la ventana (capturas en "Artifacts").
-# - Genera MonitorRed.exe (con la base de fabricantes por MAC incluida) y la edición para la Microsoft Store.
+# - Genera MonitorRed.exe (con la base de fabricantes por MAC incluida), la edición para la Microsoft Store,
+#   su paquete MSIX y el kit con todo lo que pide Partner Center (artifact MicrosoftStore-MonitorRed-1.0.N).
 # - En la rama main: además publica una versión descargable en "Releases" (tag monitor-red-v1.0.N).
 name: Monitor de Red
 
@@ -102,6 +103,30 @@ jobs:
         with:
           name: MonitorRed-EdicionStore-${{ env.VERSION }}
           path: dist/store/MonitorRed.exe
+
+      - name: Generar paquete MSIX (Microsoft Store)
+        shell: powershell
+        run: .\MonitorRed\store\Crear-MSIX.ps1 -ExePath dist\store\MonitorRed.exe -Version "$env:VERSION.0" -OutputDir dist-store
+
+      - name: Probar instalación del MSIX
+        shell: powershell
+        run: .\MonitorRed\store\Probar-MSIX.ps1 -Package dist-store\MonitorRed.msix
+
+      # Todo lo que pide Partner Center en una sola descarga: paquete, logos, arte, capturas reales y textos
+      - name: Armar el kit para la Microsoft Store
+        shell: powershell
+        run: |
+          $kit = 'dist-store\kit'
+          New-Item -ItemType Directory -Path "$kit\capturas" -Force | Out-Null
+          Copy-Item dist-store\MonitorRed.msix $kit
+          Copy-Item MonitorRed\store\LogoTienda-*.png, MonitorRed\store\ArteSuperheroe-*.png, MonitorRed\store\FICHA-TIENDA.md $kit
+          Copy-Item capturas\store\*.png "$kit\capturas"
+          Get-ChildItem $kit -Recurse -File | ForEach-Object { Write-Host "$($_.FullName.Substring((Resolve-Path $kit).Path.Length + 1))  ($([int]($_.Length / 1KB)) KB)" }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MicrosoftStore-MonitorRed-${{ env.VERSION }}
+          path: dist-store/kit/
 
       - name: Publicar versión
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
