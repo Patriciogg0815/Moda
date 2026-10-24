@@ -33,8 +33,8 @@
     <li>La dirección IP, la dirección MAC y el nombre en la red de cada equipo conectado.</li>
     <li>El fabricante de cada equipo, que se obtiene de la dirección MAC con una lista de fabricantes
       incluida dentro de la aplicación (sin consultar internet).</li>
-    <li>El consumo de internet, que se lee del router (si eliges ese modo) o del total que informa el
-      router por UPnP.</li>
+    <li>El consumo total de internet que informa tu router por UPnP y el consumo de este equipo, que se
+      lee de los contadores de red de Windows.</li>
   </ul>
   <p>Para descubrir los equipos, la aplicación usa los métodos estándar de una red local (ping, tabla ARP,
   NetBIOS, mDNS y UPnP/SSDP). Estas consultas no salen de tu red.</p>
@@ -43,17 +43,14 @@
   <ul>
     <li><strong>Nombres que tú les pones a los equipos</strong> y la lista de equipos vistos, en la carpeta
       <code>%APPDATA%\MonitorRed</code>.</li>
-    <li><strong>Usuario y contraseña del router</strong>, solo si eliges el modo "Conectar con el router".
-      La contraseña se guarda cifrada con la protección de datos de Windows (DPAPI), solo puede leerla tu
-      usuario de Windows en este equipo y únicamente se envía a tu router.</li>
   </ul>
   <p>Puedes borrar estos datos en cualquier momento eliminando esa carpeta o desinstalando la aplicación.</p>
 
   <h2>Información que la aplicación no recopila</h2>
   <ul>
     <li>No envía información a ningún servidor, ni del publicador ni de terceros.</li>
-    <li>No lee el contenido de lo que navegan tú ni los demás equipos de la red (páginas, mensajes,
-      contraseñas ni archivos).</li>
+    <li>No lee el contenido de lo que navegan tú ni los demás equipos de la red (páginas, mensajes ni
+      archivos).</li>
     <li>No usa cookies, publicidad, analíticas ni identificadores de seguimiento.</li>
     <li>No accede a tus documentos, contactos, ubicación, cámara ni micrófono.</li>
     <li>No requiere crear una cuenta.</li>
