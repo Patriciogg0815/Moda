@@ -106,7 +106,7 @@ de tipos y alertas que Windows. Detalles en `MonitorRedAndroid/README.md`.
 - Para compilar en la nube de Claude: Maven Central responde 429; se usa el espejo de Google en
   `~/.gradle/init.d` (solo local) y `-ProbolectricRepo`.
 
-### 2b. Diagnóstico PC (Windows) — rama `claude/nifty-archimedes-rqs2eo`
+### 2c. Diagnóstico PC (Windows) — rama `claude/nifty-archimedes-rqs2eo` (todavía **no** está en `main`)
 
 Autodiagnóstico de Windows (idea del usuario: su laptop se calentaba en la mochila porque no hibernaba bien
 y tenía programas que no la dejaban suspender). Muestra cada revisión en rojo/amarillo/verde, con botón
@@ -134,7 +134,8 @@ y tenía programas que no la dejaban suspender). Muestra cada revisión en rojo/
 - Limitación conocida: no identifica el driver exacto de una pantalla azul (necesitaría WinDbg); da la
   causa por el código del error.
 - **Prueba del usuario en su PC (24/10/2026, v1.0.9, HP ZBook Power 15.6 G10, Windows 11 Pro 26H2)** —
-  encontró estos problemas, que hay que corregir (estado al lado de cada uno):
+  encontró estos problemas, **todavía sin corregir** (la sesión se cortó; el siguiente Claude debe hacerlos,
+  probar en CI con `diagnostico-pc.yml` y pedirle al usuario que vuelva a probar):
   1. **"Reparar archivos de Windows" no muestra si avanza o se colgó**: la ventana se queda en "Paso 1 de 2:
      reparando la imagen de Windows con DISM..." con la barra moviéndose, sin porcentaje ni tiempo. Hace
      falta: porcentaje de DISM/SFC en vivo (leer su salida mientras corre), tiempo transcurrido, aviso si
@@ -236,6 +237,34 @@ publican desde la PC** (por ejemplo Occultarium): se pisaría lo que está en pr
 - En diseño le gustan los elementos grandes, sin espacios vacíos, y el texto oscuro, grande y
   fácil de leer. Nada de texto dibujado dentro de las imágenes (todo en HTML para poder traducirlo).
 
+## Mapa de GitHub: dónde está cada cosa
+
+Repositorio principal (público): https://github.com/Patriciogg0815/Moda — para descargar algo hay que tener la
+sesión de GitHub iniciada. Los `.exe` y kits de cada compilación están en **Actions → (flujo) → ejecución
+más reciente → Artifacts** (duran 90 días); los de `main` también quedan en **Releases**.
+
+| Proyecto | Código | Compilaciones (Actions) | Descargas / estado |
+|---|---|---|---|
+| RespaldoDrivers (Windows) | [`RespaldoDrivers/`](https://github.com/Patriciogg0815/Moda/tree/main/RespaldoDrivers) + [`store/`](https://github.com/Patriciogg0815/Moda/tree/main/store) | [compilar-exe.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/compilar-exe.yml) | [Releases](https://github.com/Patriciogg0815/Moda/releases) tags `v1.0.N` · enviada a la Store (en certificación) |
+| Monitor de Red (Windows) | [`MonitorRed/`](https://github.com/Patriciogg0815/Moda/tree/main/MonitorRed) | [monitor-red.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/monitor-red.yml) | Releases tags `monitor-red-v1.0.N` (última `monitor-red-v1.0.37`) · enviada a la Store |
+| Monitor de Red (Android) | [`MonitorRedAndroid/`](https://github.com/Patriciogg0815/Moda/tree/main/MonitorRedAndroid) | [monitor-red-android.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/monitor-red-android.yml) | Artifact `GooglePlay-MonitorRed-1.0.N` · falta firmar y subir a Play |
+| **Diagnóstico PC** (Windows) | rama [`claude/nifty-archimedes-rqs2eo`](https://github.com/Patriciogg0815/Moda/tree/claude/nifty-archimedes-rqs2eo/DiagnosticoPC) | [diagnostico-pc.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/diagnostico-pc.yml) | Última verde: [ejecución 9](https://github.com/Patriciogg0815/Moda/actions/runs/40138765701) → artifacts `DiagnosticoPC-1.0.9` (el `.exe`) y `MicrosoftStore-DiagnosticoPC-1.0.9` (kit). Probada por el usuario: hay que corregir (ver 2c) |
+| Web garridoitsolutions.lat | [`web-garridoitsolutions/`](https://github.com/Patriciogg0815/Moda/tree/main/web-garridoitsolutions) (instrucciones para Claude de escritorio) | — (se publica desde la PC) | Tanda 1 publicada, tanda 2 pendiente |
+| QuéVeo (Android, versión vieja) | rama [`claude/lucid-wozniak-0g599n`](https://github.com/Patriciogg0815/Moda/tree/claude/lucid-wozniak-0g599n) | — | La versión vigente está en la PC (`C:\pelis`) |
+| Convertir.ec (web) | repo privado https://github.com/Patriciogg0815/convertir-ec | Netlify publica `main` solo | https://convertir-ec.netlify.app/ |
+| ConsultaEC (web) | https://github.com/Patriciogg0815/consultaec | Netlify | https://consultaec.netlify.app/ |
+
+Políticas de privacidad publicadas con GitHub Pages desde `main`:
+- RespaldoDrivers: https://patriciogg0815.github.io/Moda/store/privacidad.html
+- Monitor de Red: https://patriciogg0815.github.io/Moda/MonitorRed/store/privacidad.html
+- Diagnóstico PC: https://patriciogg0815.github.io/Moda/DiagnosticoPC/store/privacidad.html (**funcionará
+  cuando la rama de Diagnóstico PC se una a `main`**)
+
+Ramas (al 24/10/2026): `main` tiene todo lo terminado; `claude/nifty-archimedes-rqs2eo` = Diagnóstico PC
+(sin unir); `claude/lucid-wozniak-0g599n` y `claude/movie-series-recommender-app-unh84n` = QuéVeo viejo;
+`claude/project-thread-hfo1sm` y `claude/project-thread-uf9bcg` = versiones viejas del Monitor sin publicidad
+(no unir: se decidió mantener la publicidad). Las demás ramas ya están unidas a `main`.
+
 ## Pendientes (al 24/10/2026)
 
 1. **Claude de escritorio, tanda 2** de `web-garridoitsolutions/INSTRUCCIONES-CLAUDE-ESCRITORIO.md`: publicar
@@ -245,7 +274,11 @@ publican desde la PC** (por ejemplo Occultarium): se pisaría lo que está en pr
 3. **Microsoft Store:** esperar la certificación de Monitor de Red de Casa y RespaldoDrivers; cuando aprueben,
    cambiar sus insignias "Coming Soon" en garridoitsolutions.lat por las de "Disponible" con su enlace, y
    enviar la actualización del Monitor con alertas (kit 1.0.37 o más nuevo).
-4. Ideas para después: AdMob en la app de Android; en Windows, seguir vigilando con la ventana cerrada e
+4. **Diagnóstico PC:** corregir los 4 problemas de la prueba del usuario (sección 2c; el más importante es
+   mostrar el avance de "Reparar archivos de Windows"), volver a probar, unir la rama a `main` (PR), reservar
+   el nombre "Diagnóstico PC" en Partner Center y poner el `IdentityName` en `DiagnosticoPC/store/identidad.json`.
+   Agregar la tarjeta de Diagnóstico PC en garridoitsolutions.lat cuando esté en la Store.
+5. Ideas para después: AdMob en la app de Android; en Windows, seguir vigilando con la ventana cerrada e
    iniciar con Windows; conectores de routers.
 
 ## Publicidad: decisiones
