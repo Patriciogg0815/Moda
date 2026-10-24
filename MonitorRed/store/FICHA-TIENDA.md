@@ -71,7 +71,8 @@ La app muestra un banner de Adsterra abajo de la ventana. Si Partner Center preg
 contiene anuncios, responde **Sí**. La descripción y la política de privacidad ya lo mencionan.
 
 ### Paquetes
-Sube **`MonitorRed.msix`**, generado **después** de completar `identidad.json` (si no, Partner Center lo
+Sube **`MonitorRed.msix`** (pestaña **Actions** → ejecución "Monitor de Red" → **Artifacts** →
+`MicrosoftStore-MonitorRed-1.0.N`), generado **después** de completar `identidad.json` (si no, Partner Center lo
 rechaza con un error de identidad).
 - Familia de dispositivos: solo **Escritorio** (Windows 10 versión 1809 o superior).
 
@@ -184,25 +185,10 @@ Partner Center indica el motivo; envía el informe a Claude para corregirlo.
 
 ---
 
-## Para el workflow del monitor (`.github/workflows/monitor-red.yml`)
+## Paquete automático
 
-Pasos a agregar después del paso "Generar MonitorRed.exe", que ya crea la edición Store
-(`dist\store\MonitorRed.exe`):
-
-```yaml
-      - name: Generar paquete MSIX (Microsoft Store)
-        shell: powershell
-        run: .\MonitorRed\store\Crear-MSIX.ps1 -ExePath dist\store\MonitorRed.exe -Version "$env:VERSION.0" -OutputDir dist-store
-
-      - name: Probar instalación del MSIX
-        shell: powershell
-        run: .\MonitorRed\store\Probar-MSIX.ps1 -Package dist-store\MonitorRed.msix
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: MicrosoftStore-MonitorRed-${{ env.VERSION }}
-          path: dist-store/MonitorRed.msix
-```
+El workflow `.github/workflows/monitor-red.yml` arma y prueba el `.msix` en cada cambio a partir de la
+edición Store (`dist\store\MonitorRed.exe`) y lo deja en el artifact `MicrosoftStore-MonitorRed-1.0.N`.
 
 ### Nuevas versiones
 Cada cambio en `main` genera un `.msix` con un número de versión mayor (`1.0.N.0`). Para actualizar la

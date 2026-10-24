@@ -1,6 +1,6 @@
 # Monitor de Red: prueba y compila MonitorRed.exe en Windows.
 # - En cada cambio: prueba la lógica, un escaneo real de la red del runner y la ventana (capturas en "Artifacts").
-# - Genera MonitorRed.exe (con la base de fabricantes por MAC incluida) y la edición para la Microsoft Store.
+# - Genera MonitorRed.exe (con la base de fabricantes por MAC incluida), la edición para la Microsoft Store y su paquete MSIX.
 # - En la rama main: además publica una versión descargable en "Releases" (tag monitor-red-v1.0.N).
 name: Monitor de Red
 
@@ -102,6 +102,19 @@ jobs:
         with:
           name: MonitorRed-EdicionStore-${{ env.VERSION }}
           path: dist/store/MonitorRed.exe
+
+      - name: Generar paquete MSIX (Microsoft Store)
+        shell: powershell
+        run: .\MonitorRed\store\Crear-MSIX.ps1 -ExePath dist\store\MonitorRed.exe -Version "$env:VERSION.0" -OutputDir dist\msix
+
+      - name: Probar instalación del MSIX
+        shell: powershell
+        run: .\MonitorRed\store\Probar-MSIX.ps1 -Package dist\msix\MonitorRed.msix
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MicrosoftStore-MonitorRed-${{ env.VERSION }}
+          path: dist/msix/MonitorRed.msix
 
       - name: Publicar versión
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
