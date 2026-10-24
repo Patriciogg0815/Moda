@@ -205,6 +205,15 @@ Assert ((Get-RateBps 3000 1000 2.0) -eq -1) 'Contador que retrocede (reinicio): 
 $upnpMode = $script:MeasurementModes | Where-Object { $_.Id -eq 'Upnp' }
 Assert ($upnpMode.Implemented) 'El modo Total por UPnP está implementado'
 
+# Publicidad: la edición Store NUNCA la habilita; la edición web sí (con la página configurada)
+$savedStore = $script:StoreEdition; $savedPrueba = $env:MONITORRED_PRUEBA
+$env:MONITORRED_PRUEBA = ''
+$script:StoreEdition = $false
+Assert (Test-AdsEnabled) 'La edición web habilita la publicidad'
+$script:StoreEdition = $true
+Assert (-not (Test-AdsEnabled)) 'La edición Store nunca habilita la publicidad'
+$script:StoreEdition = $savedStore; $env:MONITORRED_PRUEBA = $savedPrueba
+
 $enc = Protect-Text 'clave123'
 if ($enWindows) { Assert ($enc -and $enc -ne 'clave123' -and (Unprotect-Text $enc) -eq 'clave123') 'La clave del router se guarda cifrada' }
 

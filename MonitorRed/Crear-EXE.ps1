@@ -36,22 +36,28 @@ try {
     }
     $oui = [Convert]::ToBase64String([IO.File]::ReadAllBytes($Fabricantes))
 
-    # 1b. DLL de WebView2 para el banner de publicidad (paquete oficial de Microsoft en NuGet)
-    if (-not $WebView2) {
-        $WebView2 = Join-Path $work 'webview2.zip'
-        & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Preparar-WebView2.ps1') -Destino $WebView2
-        if ($LASTEXITCODE -ne 0 -or -not (Test-Path $WebView2)) { throw 'No se pudo preparar WebView2.' }
+    # 1b. DLL de WebView2 para el banner de publicidad (paquete oficial de Microsoft en NuGet).
+    # La edición Store NO lleva publicidad, así que no incrusta WebView2 (paquete más liviano y sin el navegador).
+    $webView2Zip = ''
+    if (-not $EdicionStore) {
+        if (-not $WebView2) {
+            $WebView2 = Join-Path $work 'webview2.zip'
+            & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Preparar-WebView2.ps1') -Destino $WebView2
+            if ($LASTEXITCODE -ne 0 -or -not (Test-Path $WebView2)) { throw 'No se pudo preparar WebView2.' }
+        }
+        $webView2Zip = [Convert]::ToBase64String([IO.File]::ReadAllBytes($WebView2))
     }
-    $webView2Zip = [Convert]::ToBase64String([IO.File]::ReadAllBytes($WebView2))
 
     # 2. Copia del script con la base incrustada (y la edición elegida)
     $text = [IO.File]::ReadAllText($source, [Text.Encoding]::UTF8)
     $marker = "`$script:EmbeddedOui = ''"
     if (-not $text.Contains($marker)) { throw "No se encontró $marker en MonitorRed.ps1" }
     $text = $text.Replace($marker, "`$script:EmbeddedOui = '$oui'")
-    $wvMarker = "`$script:EmbeddedWebView2 = ''"
-    if (-not $text.Contains($wvMarker)) { throw "No se encontró $wvMarker en MonitorRed.ps1" }
-    $text = $text.Replace($wvMarker, "`$script:EmbeddedWebView2 = '$webView2Zip'")
+    if (-not $EdicionStore) {
+        $wvMarker = "`$script:EmbeddedWebView2 = ''"
+        if (-not $text.Contains($wvMarker)) { throw "No se encontró $wvMarker en MonitorRed.ps1" }
+        $text = $text.Replace($wvMarker, "`$script:EmbeddedWebView2 = '$webView2Zip'")
+    }
     $text = $text.Replace("`$script:AppVersion = '1.0.0'", "`$script:AppVersion = '$Version'")
     if ($EdicionStore) {
         $storeMarker = "`$script:StoreEdition = `$false"

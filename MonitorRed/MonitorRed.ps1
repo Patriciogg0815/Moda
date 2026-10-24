@@ -3378,7 +3378,8 @@ function Update-SettingsPage {
                 }
             }
         }
-        $g.TxtAbout.Text = "$script:AppName $script:AppVersion`nFabricantes conocidos: $([MonitorRed.OuiDatabase]::Count) bloques de direcciones MAC (registro público de la IEEE).`nTus nombres y ajustes se guardan en: $script:DataDir`nLa app es gratis gracias a la publicidad de abajo (la muestra Adsterra) y al apoyo de quienes la usan."
+        $soporte = if ($script:StoreEdition) { 'La app es gratis y se mantiene con el apoyo de quienes la usan.' } else { 'La app es gratis gracias a la publicidad de abajo (la muestra Adsterra) y al apoyo de quienes la usan.' }
+        $g.TxtAbout.Text = "$script:AppName $script:AppVersion`nFabricantes conocidos: $([MonitorRed.OuiDatabase]::Count) bloques de direcciones MAC (registro público de la IEEE).`nTus nombres y ajustes se guardan en: $script:DataDir`n$soporte"
         Update-MeasurementUi
     } finally {
         $g.LoadingSettings = $false
@@ -3469,8 +3470,9 @@ function Initialize-WebView2 {
 }
 
 function Test-AdsEnabled {
-    # Las pruebas automáticas (GitHub Actions) no cargan anuncios reales: serían impresiones inválidas
-    $script:AdPageUrl -and $script:AdPageUrl -notmatch 'PENDIENTE' -and $env:MONITORRED_PRUEBA -ne '1'
+    # La edición de la Microsoft Store NUNCA muestra publicidad (lo piden las políticas de la Store).
+    # Las pruebas automáticas (GitHub Actions) tampoco cargan anuncios reales: serían impresiones inválidas.
+    (-not $script:StoreEdition) -and $script:AdPageUrl -and $script:AdPageUrl -notmatch 'PENDIENTE' -and $env:MONITORRED_PRUEBA -ne '1'
 }
 
 # Solo se navega dentro del sitio del banner; un clic en el anuncio se abre en el navegador del usuario
