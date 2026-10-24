@@ -564,7 +564,7 @@ function Invoke-Analysis([string[]]$Only) {
     }
     if (-not $Only) { Update-CrossChecks $results }
     $script:Progress.Text = ''
-    , $results.ToArray()
+    $results.ToArray()
 }
 
 # Ajustes que dependen de varias revisiones a la vez

@@ -454,12 +454,14 @@ $script:Wizard = $null
 
 # Programas
 Update-FindingList 'procesos'
+Wait-Render
 $detailButtons = @($g.DetailItems.ItemsSource | Where-Object { $_.HasAction })
 Assert ($detailButtons.Count -eq 3) 'Los programas tienen el botón «Cerrar» (menos los de Windows)'
 Save-Shot '3-programas'
 
 # Pantallas azules
 Update-FindingList 'pantallas-azules'
+Wait-Render
 Assert ($g.DetailItems.Items.Count -eq 2) 'Cada pantalla azul aparece con su paso a paso'
 Save-Shot '4-pantallas-azules'
 
