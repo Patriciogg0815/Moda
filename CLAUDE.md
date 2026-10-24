@@ -67,8 +67,12 @@ consume cada uno. Mismo estilo que RespaldoDrivers: PowerShell + WPF, con el esc
   - `MONITORRED_PRUEBA=1` evita anuncios reales en CI.
   - Botón "Apoyar a la app" (Ko-fi).
   - Política de privacidad y ficha actualizadas.
-- Pendiente: llevar el PR #4 a `main` y crear los conectores de routers.
-  El paquete MSIX del Monitor de Red todavía no se genera en `monitor-red.yml`.
+- PR #4 unido a `main` (versión publicada `monitor-red-v1.0.16`).
+- Microsoft Store: `monitor-red.yml` genera y prueba `MonitorRed.msix`, y arma el artifact
+  `MicrosoftStore-MonitorRed-1.0.N` (msix, logos, arte, capturas reales de la edición Store y la ficha).
+  Falta que el usuario reserve el nombre en Partner Center y complete `IdentityName` en
+  `MonitorRed/store/identidad.json`.
+- Pendiente: conectores de routers (modo 1).
 
 ### 3. QuéVeo (Android) — **no está en `main`**
 
