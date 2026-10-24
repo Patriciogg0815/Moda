@@ -117,7 +117,7 @@ https://patriciogg0815.github.io/Moda/MonitorRed/store/privacidad.html
 > **Cuánto internet se está usando**
 > - **Toda la casa:** la velocidad de descarga y subida total de tu red, leída del router por UPnP,
 >   sin pedir claves.
-> - **Este equipo:** cuánto descarga y sube tu PC en este momento.
+> - **Esta PC:** cuánto descarga y sube tu computadora en este momento, de forma automática.
 >
 > **Privado y sin configuraciones**
 > - No necesitas cambiar nada en el router ni crear una cuenta.
@@ -139,7 +139,7 @@ no, quita esas frases (la Store rechaza descripciones que prometen funciones que
 - Marca los equipos nuevos para detectar intrusos
 - Nombres personalizados para cada equipo
 - Consumo total de internet de la casa por UPnP, sin claves
-- Consumo de internet de este equipo en tiempo real
+- Consumo de internet de esta PC en tiempo real, automático
 - Sin cuenta, sin publicidad y sin enviar datos a internet
 
 **Términos de búsqueda** (máximo 7)
