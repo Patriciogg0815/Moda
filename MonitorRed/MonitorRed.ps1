@@ -3470,7 +3470,7 @@ function Initialize-WebView2 {
 }
 
 function Test-AdsEnabled {
-    # La edición de la Microsoft Store NUNCA muestra publicidad (lo piden las políticas de la Store).
+    # Decisión del proyecto: la edición de la Microsoft Store NUNCA muestra publicidad.
     # Las pruebas automáticas (GitHub Actions) tampoco cargan anuncios reales: serían impresiones inválidas.
     (-not $script:StoreEdition) -and $script:AdPageUrl -and $script:AdPageUrl -notmatch 'PENDIENTE' -and $env:MONITORRED_PRUEBA -ne '1'
 }
