@@ -896,6 +896,41 @@ namespace MonitorRed
         }
 
         static string WebUtilityDecode(string s) { return WebUtility.HtmlDecode(s).Trim(); }
+
+        // Pregunta al router, por UPnP (acción SOAP del servicio WANCommonInterfaceConfig), cuántos bytes
+        // han pasado por internet desde que se encendió. Devuelve el contador, o -1 si no respondió.
+        public static long GetTotalBytes(string controlUrl, string serviceType, bool received, int timeoutMs)
+        {
+            string action = received ? "GetTotalBytesReceived" : "GetTotalBytesSent";
+            string tag = received ? "NewTotalBytesReceived" : "NewTotalBytesSent";
+            string body =
+                "<?xml version=\"1.0\"?>" +
+                "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" " +
+                "s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">" +
+                "<s:Body><u:" + action + " xmlns:u=\"" + serviceType + "\"></u:" + action + "></s:Body></s:Envelope>";
+            try
+            {
+                HttpWebRequest req = (HttpWebRequest)WebRequest.Create(controlUrl);
+                req.Method = "POST";
+                req.ContentType = "text/xml; charset=\"utf-8\"";
+                req.Headers.Add("SOAPACTION", "\"" + serviceType + "#" + action + "\"");
+                req.Timeout = timeoutMs;
+                req.ReadWriteTimeout = timeoutMs;
+                req.Proxy = null;
+                byte[] data = Encoding.UTF8.GetBytes(body);
+                req.ContentLength = data.Length;
+                using (Stream rs = req.GetRequestStream()) rs.Write(data, 0, data.Length);
+                string xml;
+                using (WebResponse resp = req.GetResponse())
+                using (StreamReader sr = new StreamReader(resp.GetResponseStream())) xml = sr.ReadToEnd();
+                string value = Tag(xml, tag);
+                // El contador es de 32 bits y da la vuelta; se trata como sin signo
+                long result;
+                if (long.TryParse(value, out result) && result >= 0) return result;
+            }
+            catch { }
+            return -1;
+        }
     }
 
     // ---------------------------------------------------------------- Fabricantes por MAC
@@ -1553,7 +1588,8 @@ function Save-OuiDatabase([string]$Destination, [string]$SourcePath) {
 #   RequiresConsent   Si es $true, Automático solo lo usa cuando el usuario lo activó en Ajustes.
 #   Implemented       $false mientras la medición en sí está en desarrollo (el modo igual informa si está disponible).
 #   Test  { param($Ctx) }  → @{ Available = [bool]; Reason = 'texto para el usuario' }
-#   Read  { param($Ctx) }  → lista de muestras @{ Key = <MAC o 'TOTAL'>; DownBps = [double]; UpBps = [double] }
+#   Read  { param($Ctx) }  → lista de muestras @{ Key = <MAC o 'TOTAL'>; DownBytes; UpBytes } con los
+#                            bytes acumulados (contadores); el bucle calcula la velocidad por la diferencia.
 # $Ctx tiene: Network (LocalNetwork), Session (ScanSession), Settings, Devices, IsAdmin.
 $script:MeasurementModes = @(
     @{
@@ -1566,9 +1602,9 @@ $script:MeasurementModes = @(
     @{
         Id = 'Upnp'; Number = 2; Priority = 4; Name = 'Total por UPnP'; Scope = 'Solo total'; Glyph = 0xE774
         Description = 'Pregunta al router, por UPnP, cuántos datos pasan por internet. No necesita clave, pero solo da el total de la casa, no por equipo.'
-        Warning = ''; RequiresConsent = $false; Implemented = $false
+        Warning = ''; RequiresConsent = $false; Implemented = $true
         Test = { param($Ctx) Test-UpnpMode $Ctx }
-        Read = { param($Ctx) @() }
+        Read = { param($Ctx) Read-UpnpTotal $Ctx }
     }
     @{
         Id = 'Intercept'; Number = 3; Priority = 3; Name = 'Interceptar el tráfico (avanzado)'; Scope = 'Por equipo'; Glyph = 0xE7BA
@@ -1622,6 +1658,16 @@ function Test-UpnpMode($Ctx) {
     }
     if (-not $Ctx.Session -or -not $Ctx.Session.IsCompleted) { return @{ Available = $false; Reason = 'Se sabrá al terminar el escaneo.' } }
     @{ Available = $false; Reason = 'El router no respondió por UPnP (puede estar desactivado en su configuración).' }
+}
+
+# Lee del router los bytes totales que han pasado por internet (bajada y subida de toda la casa).
+function Read-UpnpTotal($Ctx) {
+    $igd = @($Ctx.Session.InternetGateways) | Where-Object { $_.WanControlUrl } | Select-Object -First 1
+    if (-not $igd) { return @() }
+    $down = [MonitorRed.Upnp]::GetTotalBytes($igd.WanControlUrl, $igd.WanServiceType, $true, 4000)
+    $up = [MonitorRed.Upnp]::GetTotalBytes($igd.WanControlUrl, $igd.WanServiceType, $false, 4000)
+    if ($down -lt 0 -and $up -lt 0) { return @() }
+    @(@{ Key = 'TOTAL'; DownBytes = $down; UpBytes = $up })
 }
 
 function Test-NpcapInstalled {
@@ -1679,6 +1725,54 @@ function Get-MeasurementSummary($State) {
     $m = $State.Active.Mode
     $suffix = if ($m.Implemented) { '' } else { ' La medición de este modo está en desarrollo.' }
     "${prefix}: $($m.Name) ($($m.Scope.ToLower())).$suffix"
+}
+
+# "1,2 MB/s", "340 KB/s"... para una velocidad en bytes por segundo
+function Format-Rate([double]$BytesPerSec) {
+    if ($BytesPerSec -lt 0) { return '—' }
+    if ($BytesPerSec -lt 1024) { return '{0:0} B/s' -f $BytesPerSec }
+    $kb = $BytesPerSec / 1024
+    if ($kb -lt 1000) { return '{0:0} KB/s' -f $kb }
+    $mb = $kb / 1024
+    if ($mb -lt 1000) { return '{0:0.0} MB/s' -f $mb }
+    '{0:0.0} GB/s' -f ($mb / 1024)
+}
+
+# "4,7 GB", "812 MB"... para una cantidad total de bytes
+function Format-Bytes([double]$Bytes) {
+    if ($Bytes -lt 0) { return '—' }
+    $u = 'B', 'KB', 'MB', 'GB', 'TB'
+    $i = 0
+    while ($Bytes -ge 1024 -and $i -lt $u.Count - 1) { $Bytes /= 1024; $i++ }
+    $fmt = if ($i -eq 0) { '{0:0} {1}' } else { '{0:0.0} {1}' }
+    $fmt -f $Bytes, $u[$i]
+}
+
+# Velocidad entre dos lecturas del mismo contador de bytes. Si el contador bajó (el equipo o el router
+# se reinició, o el contador de 32 bits dio la vuelta), se devuelve -1 para volver a tomar la referencia:
+# así se evita mostrar un pico falso; solo se pierde una lectura.
+function Get-RateBps([double]$PrevBytes, [double]$NowBytes, [double]$Seconds) {
+    if ($Seconds -le 0 -or $PrevBytes -lt 0 -or $NowBytes -lt 0) { return -1 }
+    $delta = $NowBytes - $PrevBytes
+    if ($delta -lt 0) { return -1 }
+    $delta / $Seconds
+}
+
+# Bytes que han pasado por la tarjeta de red de ESTE equipo (siempre disponible, sin depender del router)
+function Get-SelfTrafficBytes($Network) {
+    try {
+        foreach ($ni in [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()) {
+            if ($ni.OperationalStatus -ne 'Up') { continue }
+            $match = $false
+            foreach ($ua in $ni.GetIPProperties().UnicastAddresses) {
+                if ($ua.Address.ToString() -eq $Network.LocalIp) { $match = $true; break }
+            }
+            if (-not $match) { continue }
+            $s = $ni.GetIPStatistics()
+            return @{ DownBytes = [double]$s.BytesReceived; UpBytes = [double]$s.BytesSent }
+        }
+    } catch { }
+    $null
 }
 
 #endregion
@@ -2092,11 +2186,24 @@ $script:Xaml = @'
         </StackPanel>
         <ProgressBar x:Name="ScanProgress" Grid.Row="1" Grid.ColumnSpan="2" Height="4" Margin="0,8,0,0" Minimum="0" Maximum="100"
                      Foreground="{StaticResource Accent}" Background="#EDEDED" BorderThickness="0"/>
-        <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,8,0,0">
-          <TextBlock Style="{StaticResource Icon}" Text="&#xE9D9;" Foreground="{StaticResource TextSecondary}" Margin="0,0,10,0"/>
-          <TextBlock x:Name="TxtMeasure" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="900"/>
-          <Button x:Name="BtnMeasureSettings" Style="{StaticResource LinkButton}" Content="Cambiar" Margin="10,0,0,0" VerticalAlignment="Center"/>
-        </StackPanel>
+        <Grid Grid.Row="2" Grid.ColumnSpan="2" Margin="0,8,0,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Style="{StaticResource Icon}" Text="&#xE9D9;" Foreground="{StaticResource TextSecondary}" Margin="0,0,10,0"/>
+            <TextBlock x:Name="TxtMeasure" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="760"/>
+            <Button x:Name="BtnMeasureSettings" Style="{StaticResource LinkButton}" Content="Cambiar" Margin="10,0,0,0" VerticalAlignment="Center"/>
+          </StackPanel>
+          <StackPanel x:Name="TotalRatePanel" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
+            <TextBlock Text="Toda la casa:" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBlock Style="{StaticResource Icon}" Text="&#xE74B;" Foreground="{StaticResource Accent}" FontSize="12" Margin="0,0,3,0"/>
+            <TextBlock x:Name="TxtTotalDown" Text="—" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0"/>
+            <TextBlock Style="{StaticResource Icon}" Text="&#xE74A;" Foreground="{StaticResource Green}" FontSize="12" Margin="0,0,3,0"/>
+            <TextBlock x:Name="TxtTotalUp" Text="—" FontWeight="SemiBold" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Grid>
       </Grid>
     </Border>
 
@@ -2152,8 +2259,20 @@ $script:Xaml = @'
               <DataGridTextColumn Header="MAC" Binding="{Binding Mac}" Width="140" FontFamily="Consolas"/>
               <DataGridTextColumn Header="Fabricante" Binding="{Binding Vendor}" Width="1.2*"/>
               <DataGridTemplateColumn Header="Estado" CellTemplate="{StaticResource StatusCell}" Width="1.1*" SortMemberPath="IsOnline"/>
-              <DataGridTextColumn Header="Bajada" Binding="{Binding Download}" Width="70"/>
-              <DataGridTextColumn Header="Subida" Binding="{Binding Upload}" Width="70"/>
+              <DataGridTextColumn Header="Bajada" Binding="{Binding Download}" Width="72">
+                <DataGridTextColumn.ElementStyle>
+                  <Style TargetType="TextBlock">
+                    <Setter Property="ToolTip" Value="Datos que baja de internet. El consumo de esta PC y el total de la casa (arriba) se muestran siempre; para el consumo de los demás equipos hace falta un modo que mida por equipo (ver Ajustes)."/>
+                  </Style>
+                </DataGridTextColumn.ElementStyle>
+              </DataGridTextColumn>
+              <DataGridTextColumn Header="Subida" Binding="{Binding Upload}" Width="72">
+                <DataGridTextColumn.ElementStyle>
+                  <Style TargetType="TextBlock">
+                    <Setter Property="ToolTip" Value="Datos que sube a internet. El consumo de esta PC y el total de la casa (arriba) se muestran siempre; para el consumo de los demás equipos hace falta un modo que mida por equipo (ver Ajustes)."/>
+                  </Style>
+                </DataGridTextColumn.ElementStyle>
+              </DataGridTextColumn>
             </DataGrid.Columns>
           </DataGrid>
           <TextBlock x:Name="TxtEmpty" Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{StaticResource TextSecondary}"
@@ -2524,6 +2643,7 @@ function Start-NetworkScan {
     if ($net.IsLimited) { $g.TxtSubtitle.Text += '  ·  Red grande: se escanea solo la parte de este equipo (/24)' }
     $g.SeenKeys = @{}
     $g.ByIp = @{}
+    Reset-Measurement
     $g.ScanStarted = Get-Date
     $session = New-Object MonitorRed.ScanSession($net)
     $g.Session = $session
@@ -2722,9 +2842,126 @@ function Update-MeasurementUi {
     }
     $g.TxtMeasure.Text = Get-MeasurementSummary $state
     $g.TxtAutoResult.Text = if ($state.Active) { "Ahora mismo elegiría: $($state.Active.Mode.Name)." } else { 'Ahora mismo no hay ningún modo disponible.' }
-
-    # Cuando un modo mida por equipo, su función Read llenará Bajada/Subida. Mientras tanto se muestra "—".
+    Sync-MeasureSources
 }
+
+#region Medición en vivo del consumo
+
+# Arranca o detiene las fuentes de medición según el modo activo. El consumo de ESTE equipo se mide
+# siempre (es gratis); las demás fuentes dependen del modo.
+function Sync-MeasureSources {
+    $g = $script:Gui
+    $state = $g.MeasureState
+    $upnpActive = [bool]($state -and $state.Active -and $state.Active.Mode.Id -eq 'Upnp' -and $g.Session -and $g.Session.IsCompleted)
+    if ($upnpActive) {
+        if (-not $g.UpnpPS) { Start-UpnpPoll }
+    } else {
+        Stop-UpnpPoll
+        $g.TotalRatePanel.Visibility = 'Collapsed'
+    }
+}
+
+function Reset-Measurement {
+    $g = $script:Gui
+    Stop-UpnpPoll
+    $g.PrevSelf = $null
+    foreach ($d in @($g.Devices)) { $d.Download = '—'; $d.Upload = '—' }
+    $g.TotalRatePanel.Visibility = 'Collapsed'
+    $g.TxtTotalDown.Text = '—'; $g.TxtTotalUp.Text = '—'
+}
+
+# Consumo real de la tarjeta de red de este equipo, sin depender del router (lectura instantánea)
+function Update-SelfMeasurement {
+    $g = $script:Gui
+    $net = Get-SelectedNetwork
+    if (-not $net) { return }
+    $self = $null
+    foreach ($d in @($g.Devices)) { if ($d.IsSelf) { $self = $d; break } }
+    if (-not $self) { return }
+    $now = Get-SelfTrafficBytes $net
+    if (-not $now) { return }
+    $t = [double][Environment]::TickCount
+    if ($g.PrevSelf) {
+        $secs = ($t - $g.PrevSelf.Time) / 1000.0
+        $self.Download = Format-Rate (Get-RateBps $g.PrevSelf.DownBytes $now.DownBytes $secs)
+        $self.Upload = Format-Rate (Get-RateBps $g.PrevSelf.UpBytes $now.UpBytes $secs)
+    }
+    $g.PrevSelf = @{ DownBytes = $now.DownBytes; UpBytes = $now.UpBytes; Time = $t }
+}
+
+# El total por UPnP hace una llamada al router que puede tardar unos segundos, así que se consulta en
+# un hilo aparte que escribe el resultado en una tabla compartida; la ventana solo lo lee.
+function Start-UpnpPoll {
+    $g = $script:Gui
+    if (-not $g.Session) { return }
+    $igd = @($g.Session.InternetGateways) | Where-Object { $_.WanControlUrl } | Select-Object -First 1
+    if (-not $igd) { return }
+    $sync = [hashtable]::Synchronized(@{ Stop = $false; Time = 0.0; Down = -1.0; Up = -1.0 })
+    $ps = [PowerShell]::Create()
+    $ps.Runspace.SessionStateProxy.SetVariable('sync', $sync)
+    [void]$ps.AddScript({
+        param($Source, $Url, $ServiceType, $IntervalMs)
+        try { if (-not ('MonitorRed.Upnp' -as [type])) { Add-Type -TypeDefinition $Source -Language CSharp -IgnoreWarnings -ErrorAction SilentlyContinue } } catch { }
+        while (-not $sync.Stop) {
+            $d = [MonitorRed.Upnp]::GetTotalBytes($Url, $ServiceType, $true, 4000)
+            $u = [MonitorRed.Upnp]::GetTotalBytes($Url, $ServiceType, $false, 4000)
+            $sync.Down = [double]$d; $sync.Up = [double]$u; $sync.Time = [double][Environment]::TickCount
+            $waited = 0
+            while (-not $sync.Stop -and $waited -lt $IntervalMs) { Start-Sleep -Milliseconds 100; $waited += 100 }
+        }
+    }).AddArgument($script:ScannerSource).AddArgument($igd.WanControlUrl).AddArgument($igd.WanServiceType).AddArgument(2000)
+    $g.UpnpSync = $sync
+    $g.UpnpPS = $ps
+    $g.UpnpHandle = $ps.BeginInvoke()
+    $g.PrevTotal = $null
+}
+
+function Stop-UpnpPoll {
+    $g = $script:Gui
+    if ($g.UpnpSync) { $g.UpnpSync.Stop = $true }
+    # El hilo puede estar dentro de una llamada al router (hasta unos segundos) y no termina al instante.
+    # Para no congelar la ventana no se espera aquí: se guarda y se desecha más tarde, cuando ya terminó.
+    if ($g.UpnpPS) { $g.UpnpDisposing.Add(@{ PS = $g.UpnpPS; Handle = $g.UpnpHandle }) | Out-Null }
+    $g.UpnpPS = $null; $g.UpnpSync = $null; $g.UpnpHandle = $null; $g.PrevTotal = $null
+}
+
+# Desecha los hilos de medición que ya terminaron (llamado desde el temporizador)
+function Clear-FinishedPolls {
+    $g = $script:Gui
+    if ($g.UpnpDisposing.Count -eq 0) { return }
+    foreach ($job in @($g.UpnpDisposing)) {
+        if ($job.Handle.IsCompleted) {
+            try { [void]$job.PS.EndInvoke($job.Handle) } catch { }
+            try { $job.PS.Dispose() } catch { }
+            $g.UpnpDisposing.Remove($job)
+        }
+    }
+}
+
+# Llamado por el temporizador cada 2 s: actualiza el consumo de este equipo y el total de la casa
+function Update-Measurement {
+    $g = $script:Gui
+    Clear-FinishedPolls
+    if (-not $g.Networks -or $g.Networks.Count -eq 0) { return }
+    Update-SelfMeasurement
+    $state = $g.MeasureState
+    if ($state -and $state.Active -and $state.Active.Mode.Id -eq 'Upnp' -and $g.UpnpSync) {
+        $s = $g.UpnpSync
+        if ($s.Time -ne 0 -and ($s.Down -ge 0 -or $s.Up -ge 0)) {
+            if ($g.PrevTotal -and $s.Time -ne $g.PrevTotal.Time) {
+                $secs = ($s.Time - $g.PrevTotal.Time) / 1000.0
+                $g.TxtTotalDown.Text = Format-Rate (Get-RateBps $g.PrevTotal.Down $s.Down $secs)
+                $g.TxtTotalUp.Text = Format-Rate (Get-RateBps $g.PrevTotal.Up $s.Up $secs)
+                $g.TotalRatePanel.Visibility = 'Visible'
+            }
+            if (-not $g.PrevTotal -or $s.Time -ne $g.PrevTotal.Time) {
+                $g.PrevTotal = @{ Down = $s.Down; Up = $s.Up; Time = $s.Time }
+            }
+        }
+    }
+}
+
+#endregion
 
 function Update-SettingsPage {
     $g = $script:Gui
@@ -2808,6 +3045,7 @@ function New-MainWindow {
     $g = @{
         Window = $window; Session = $null; ByKey = @{}; ByIp = @{}; SeenKeys = @{}; EditingKey = $null
         HadHistory = ($script:Known.Count -gt 0); IsLaptop = (Test-IsLaptop); OuiJob = $null; LoadingSettings = $false
+        UpnpPS = $null; UpnpSync = $null; UpnpHandle = $null; PrevSelf = $null; PrevTotal = $null; UpnpDisposing = (New-Object System.Collections.ArrayList)
     }
     $xamlNs = 'http://schemas.microsoft.com/winfx/2006/xaml'
     $nsm = New-Object System.Xml.XmlNamespaceManager($xml.NameTable)
@@ -2868,6 +3106,11 @@ function New-MainWindow {
     $g.Timer.Interval = [TimeSpan]::FromMilliseconds(250)
     $g.Timer.Add_Tick({ Update-ScanProgress })
 
+    # Temporizador de medición del consumo (cada 2 s, mientras la ventana está abierta)
+    $g.MeasureTimer = New-Object System.Windows.Threading.DispatcherTimer
+    $g.MeasureTimer.Interval = [TimeSpan]::FromSeconds(2)
+    $g.MeasureTimer.Add_Tick({ Update-Measurement })
+
     # --- Eventos ---
     $g.BtnScan.Add_Click({ Start-NetworkScan })
     $g.BtnSettings.Add_Click({ Show-Page 'PageSettings' })
@@ -2911,10 +3154,13 @@ function New-MainWindow {
         $g = $script:Gui
         if ($g.Session -is [MonitorRed.ScanSession]) { $g.Session.Cancel() }
         $g.Timer.Stop()
+        $g.MeasureTimer.Stop()
+        Stop-UpnpPoll
         Save-KnownDevices
     })
 
     $window.Add_ContentRendered({
+        $script:Gui.MeasureTimer.Start()
         if (-not $script:AutoScan) { return }
         if (-not (Import-OuiDatabase)) { Start-OuiDownload }
         Start-NetworkScan

@@ -191,6 +191,19 @@ $ctx.Settings.MeasurementMode = 'RouterApi'
 $ctx.Session = $fakeSession
 $st = Get-MeasurementState $ctx
 Assert (-not $st.Active -and (Get-MeasurementSummary $st) -match 'no está disponible') 'Un modo elegido a mano que no está disponible se informa'
+# Medición: formato y cálculo de velocidad
+Assert ((Format-Rate 0) -eq '0 B/s') 'Formato de velocidad: 0 B/s'
+Assert ((Format-Rate 2048) -eq '2 KB/s') "Formato de velocidad: KB/s ($([MonitorRed.Net]::IsWindows))"
+Assert ((Format-Rate (5 * 1024 * 1024)) -eq '5,0 MB/s' -or (Format-Rate (5 * 1024 * 1024)) -eq '5.0 MB/s') "Formato de velocidad: MB/s ($(Format-Rate (5*1024*1024)))"
+Assert ((Format-Rate -1) -eq '—') 'Velocidad desconocida: raya'
+Assert ((Format-Bytes (3 * 1024 * 1024 * 1024)) -match '^3[.,]0 GB$') "Formato de total: GB ($(Format-Bytes (3*1024*1024*1024)))"
+Assert ([int](Get-RateBps 1000 3000 2.0) -eq 1000) 'Velocidad = (3000-1000)/2s = 1000 B/s'
+Assert ((Get-RateBps 3000 1000 2.0) -eq -1) 'Contador que retrocede (reinicio): se vuelve a tomar la referencia'
+
+# El modo UPnP ahora sí está implementado
+$upnpMode = $script:MeasurementModes | Where-Object { $_.Id -eq 'Upnp' }
+Assert ($upnpMode.Implemented) 'El modo Total por UPnP está implementado'
+
 $enc = Protect-Text 'clave123'
 if ($enWindows) { Assert ($enc -and $enc -ne 'clave123' -and (Unprotect-Text $enc) -eq 'clave123') 'La clave del router se guarda cifrada' }
 
@@ -276,6 +289,21 @@ Assert ($g.TxtOnline.Text -eq [string]$casa.Count) "Contador de equipos en líne
 $visible = @($g.View).Count
 Assert ($visible -eq $casa.Count) 'Los desconectados quedan ocultos por defecto'
 Assert ($g.TxtMeasure.Text -match 'UPnP') "Resumen de medición: $($g.TxtMeasure.Text)"
+
+# Medición: el modo UPnP activo arranca un hilo que consulta el total al router
+Assert ($null -ne $g.UpnpPS) 'Con UPnP activo se arranca la consulta del total de la casa'
+Assert ($null -ne (@($g.Devices | Where-Object { $_.IsSelf })[0])) 'La casa de ejemplo incluye este equipo'
+# Se detiene el hilo real (apunta a un router de ejemplo) y se simula su lectura, para probar sin router
+Stop-UpnpPoll
+Assert ($null -eq $g.UpnpPS) 'La consulta del total se puede detener sin congelar la ventana'
+$g.UpnpSync = @{ Stop = $false; Down = 10000000.0; Up = 2000000.0; Time = 1000.0 }
+$g.PrevTotal = $null
+Update-Measurement
+$g.UpnpSync.Down = 10000000.0 + 1024 * 1024; $g.UpnpSync.Up = 2000000.0 + 512 * 1024; $g.UpnpSync.Time = 3000.0
+Update-Measurement
+Assert ($g.TotalRatePanel.Visibility -eq 'Visible' -and $g.TxtTotalDown.Text -ne '—') "Total de la casa en vivo: bajada $($g.TxtTotalDown.Text), subida $($g.TxtTotalUp.Text)"
+Reset-Measurement
+Assert ($g.TotalRatePanel.Visibility -eq 'Collapsed') 'Al reescanear se reinicia la medición'
 
 $tv = $g.ByKey['8C:79:F5:21:44:9A']
 $g.DeviceGrid.SelectedItem = $tv
