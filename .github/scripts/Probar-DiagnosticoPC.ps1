@@ -387,10 +387,11 @@ function Get-CimInstance {
 
 # Revisiones con la lógica real y los datos de ejemplo (sin segundo plano: usa las funciones de arriba)
 $script:PcInfo = $null
-$gui = $script:Gui
+# (en PowerShell $gui y $Gui son la misma variable: se usa otro nombre)
+$savedWindow = $script:Gui
 $script:Gui = $null
 $sample = @(Invoke-Analysis)
-$script:Gui = $gui
+$script:Gui = $savedWindow
 $byId = @{}
 foreach ($f in $sample) { $byId[$f.Id] = $f }
 Assert ($byId['hibernacion'].Level -eq 'Rojo' -and $byId['hibernacion'].Fix -eq 'activar-hibernacion') "Ejemplo: $($byId['hibernacion'].Title)"
