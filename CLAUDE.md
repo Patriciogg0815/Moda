@@ -77,15 +77,16 @@ consume cada uno. Mismo estilo que RespaldoDrivers: PowerShell + WPF, con el esc
   **Enviado a la Store el 24/10/2026** con el kit 1.0.29 (en certificación, 1 a 3 días hábiles). Si la
   rechazan, el usuario trae el informe de Partner Center para corregirlo. Para actualizar: nuevo envío con
   el `.msix` más reciente del artifact `MicrosoftStore-MonitorRed-1.0.N`.
-- **Alertas (24/10/2026, rama `claude/happy-albattani-7ms4ny`):** mientras la app está abierta (aunque esté
+- **Alertas (24/10/2026, en `main` por el PR #9, versión `monitor-red-v1.0.37`):** mientras la app está abierta (aunque esté
   minimizada) revisa la red cada 1-15 min (por defecto 2) en un escaneo aparte (`Start-WatchScan`, no reinicia
   la medición) y avisa con una notificación de Windows (ícono junto al reloj, `NotifyIcon`): equipo nuevo y
   equipo desconectado. La desconexión se avisa si falta en **2 revisiones seguidas** y nunca si cambió la red
   o el router no respondió (`Get-NetworkAlerts`). Opción "solo los que tienen nombre". Ajustes → Alertas.
-  Probado en CI (ventana real). Va en el **próximo** envío a la Store (la ficha ya tiene el texto).
+  Probado en CI (ventana real). Va en el **próximo** envío a la Store: usar el kit `MicrosoftStore-MonitorRed-1.0.37`
+  o uno más nuevo, cuando la Store apruebe el envío en certificación (la ficha ya tiene el texto de novedades).
 - Pendiente: conectores de routers (modo 1); seguir vigilando con la ventana cerrada / iniciar con Windows.
 
-### 2b. Monitor de Red para Android — carpeta `MonitorRedAndroid/` (rama `claude/happy-albattani-7ms4ny`)
+### 2b. Monitor de Red para Android — carpeta `MonitorRedAndroid/` (en `main`, PR #9)
 
 Kotlin + Jetpack Compose, minSdk 26, targetSdk 36, paquete `lat.garridoitsolutions.monitorred`. Mismas reglas
 de tipos y alertas que Windows. Detalles en `MonitorRedAndroid/README.md`.
@@ -163,8 +164,8 @@ publican desde la PC** (por ejemplo Occultarium): se pisaría lo que está en pr
 - **garridoitsolutions.lat** — sitio de la empresa (Netlify CLI desde la PC). Tiene las **políticas de
   privacidad de las apps de Play** y el `app-ads.txt` de AdMob: no romperlos.
   - Desde la web no se puede publicar este sitio: lo que no se pueda hacer aquí se deja a Claude de
-    escritorio con instrucciones en `web-garridoitsolutions/INSTRUCCIONES-CLAUDE-ESCRITORIO.md` (rama
-    `claude/happy-albattani-7ms4ny`), por tandas.
+    escritorio con instrucciones en `web-garridoitsolutions/INSTRUCCIONES-CLAUDE-ESCRITORIO.md` (en `main`),
+    por tandas.
   - Tanda 1 (**publicada** el 24/10/2026): en `/proyectos`, insignias "Coming Soon" de Google Play, App Store
     y Microsoft Store (`/img/badges/`), tarjetas de Monitor de Red de Casa y RespaldoDrivers, marco blanco en
     todas las insignias (`style.css?v=37`).
@@ -192,6 +193,18 @@ publican desde la PC** (por ejemplo Occultarium): se pisaría lo que está en pr
   confirma; anotar el deploy anterior para poder volver atrás.
 - En diseño le gustan los elementos grandes, sin espacios vacíos, y el texto oscuro, grande y
   fácil de leer. Nada de texto dibujado dentro de las imágenes (todo en HTML para poder traducirlo).
+
+## Pendientes (al 24/10/2026)
+
+1. **Claude de escritorio, tanda 2** de `web-garridoitsolutions/INSTRUCCIONES-CLAUDE-ESCRITORIO.md`: publicar
+   `/monitorred-privacidad` y la tarjeta del Monitor con Android (borrador primero).
+2. **Google Play – Monitor de Red Android:** firmar el `.aab` del kit `GooglePlay-MonitorRed-1.0.N` con la clave
+   de subida (en la PC) y seguir `MonitorRedAndroid/play/FICHA-PLAY.md` en Play Console.
+3. **Microsoft Store:** esperar la certificación de Monitor de Red de Casa y RespaldoDrivers; cuando aprueben,
+   cambiar sus insignias "Coming Soon" en garridoitsolutions.lat por las de "Disponible" con su enlace, y
+   enviar la actualización del Monitor con alertas (kit 1.0.37 o más nuevo).
+4. Ideas para después: AdMob en la app de Android; en Windows, seguir vigilando con la ventana cerrada e
+   iniciar con Windows; conectores de routers.
 
 ## Publicidad: decisiones
 
