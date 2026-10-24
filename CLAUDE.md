@@ -82,6 +82,10 @@ consume cada uno. Mismo estilo que RespaldoDrivers: PowerShell + WPF, con el esc
 
 Recomienda películas y series y muestra en qué plataforma verlas (TMDB + JustWatch). Antes se llamaba "Moda".
 
+> **Versión vigente: la de la PC del usuario** (Claude de escritorio), en `C:\pelis`: applicationId `com.queveo`,
+> v1.7 (versionCode 9), con AdMob, tutorial y el `.aab` para Play. Lo que hay en estas ramas es una versión
+> anterior. El usuario **no quiere el nombre "Moda"** en la app, la ficha ni los textos.
+
 - **Rama `claude/lucid-wozniak-0g599n`** (la más completa; `claude/movie-series-recommender-app-unh84n`
   es una versión anterior).
 - HTML/CSS/JS sin dependencias en `www/`, empaquetado con Capacitor (`android/`), appId `app.moda.queveo`.
@@ -113,6 +117,47 @@ subió los archivos a GitHub: son iguales a los publicados.
 
 Otro sitio: https://consultaec.netlify.app/ (validador de cédula/RUC y calculadoras laborales de Ecuador).
 Usa Google AdSense (`pub-6398797687169342`, en `ads.txt`). Es HTML/CSS/JS puro.
+
+## Trabajo hecho en Claude de escritorio (PC del usuario)
+
+El usuario también usa **Claude de escritorio** en su PC (Windows). Esa versión tiene su propia memoria en la PC
+y publica con la Netlify CLI desde carpetas locales (sin GitHub). Este resumen es del **24/10/2026**; los
+detalles (rutas exactas, versiones, cuentas) están en la PC. **No publiques desde aquí los sitios que se
+publican desde la PC** (por ejemplo Occultarium): se pisaría lo que está en producción.
+
+### Webs
+- **Occultarium** — https://www.occultarium.org (sitio de esoterismo con suscripciones). Carpeta `C:\ocultismo`,
+  Netlify `ocultismo`, se publica **solo desde la PC**. Rediseño v2 en producción en todas las secciones
+  (Armarium = biblioteca de libros, Tarot, Oráculo con IA, Calendario lunar, Sueños, Alquimia, Numerología,
+  Sonidos místicos, Artículos, Símbolos), velas animadas, botón "Escuchar" (voz), modo liviano para equipos
+  lentos, español/inglés. Backend: Supabase + n8n; pagos web con PayPal.
+  - Apps: Android (Capacitor, cobra con Google Play vía RevenueCat), **Android TV nativa** (Kotlin + Compose)
+    e iPhone/iPad (Capacitor; sin Mac: el `.ipa` se compila con GitHub Actions y se instala con Sideloadly).
+- **garridoitsolutions.lat** — sitio de la empresa (Netlify CLI desde la PC). Tiene las **políticas de
+  privacidad de las apps de Play** y el `app-ads.txt` de AdMob: no romperlos.
+- **ConsultaEC** y **Convertir.ec** — ver arriba. El backend Office↔PDF de Convertir.ec corre en Docker en
+  el VPS del usuario (lo instala `setup/convertir-api.sh`).
+- **Buzón de sugerencias** (colegio, login con Google del dominio del colegio), **SpeakCoach** (tutor de
+  idiomas por voz con IA), **simulador de entrevista de visa de EE. UU.**, **POS / tienda online "Tienda
+  Mary"** (VPS, con facturación electrónica SRI).
+
+### Apps Android (Google Play)
+- QuéVeo (ver arriba), **CoinID** (identifica monedas con IA; aprobada en producción), **Reloj Mundial**
+  (reemplazo de TimeZo, Flutter), **VisaPrep** (simulador de entrevista de visa), **Convertir.ec** (Capacitor
+  + AdMob), chat familiar (Flutter + Firebase), Tienda Mary.
+- Para Play el entregable es **siempre el `.aab`**. En la PC, **Avast** intercepta TLS y rompe las descargas de
+  Gradle: se compila con un truststore que incluye el certificado de Avast.
+
+### Apps Windows
+- **AppRescate** — respalda programas instalados + su configuración y genera un paquete restaurable.
+  C#/.NET 10, **ya publicada en la Microsoft Store** (misma cuenta de Partner Center), 30 idiomas.
+  Se parece a RespaldoDrivers, pero es otra app.
+
+### Cómo trabajar con el usuario (aprendido en escritorio)
+- Mostrar primero un borrador (deploy de prueba en Netlify) y publicar en producción solo cuando él lo
+  confirma; anotar el deploy anterior para poder volver atrás.
+- En diseño le gustan los elementos grandes, sin espacios vacíos, y el texto oscuro, grande y
+  fácil de leer. Nada de texto dibujado dentro de las imágenes (todo en HTML para poder traducirlo).
 
 ## Publicidad: decisiones
 
