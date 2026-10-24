@@ -61,14 +61,13 @@ consume cada uno. Mismo estilo que RespaldoDrivers: PowerShell + WPF, con el esc
 - **Publicidad y donaciones (hecho):**
   - Banner Adsterra 728x90 abajo de la ventana, en un WebView2 que carga
     `https://convertir-ec.netlify.app/app-banner.html`. El archivo está en `MonitorRed/web/app-banner.html` y
-    también está en el repo `convertir-ec` (PR #1); se publica al unir ese PR y conectar el repo en Netlify.
+    también está en el repo `convertir-ec` y ya está publicado.
   - Las DLL de WebView2 las prepara `MonitorRed/Preparar-WebView2.ps1` (con huella SHA-256 fijada) y
     `Crear-EXE.ps1` las incrusta.
   - `MONITORRED_PRUEBA=1` evita anuncios reales en CI.
   - Botón "Apoyar a la app" (Ko-fi).
   - Política de privacidad y ficha actualizadas.
-- Pendiente: publicar `app-banner.html` (PR #1 de convertir-ec), llevar el PR #4 a `main` y crear los
-  conectores de routers.
+- Pendiente: llevar el PR #4 a `main` y crear los conectores de routers.
   El paquete MSIX del Monitor de Red todavía no se genera en `monitor-red.yml`.
 
 ### 3. QuéVeo (Android) — **no está en `main`**
@@ -92,8 +91,8 @@ subió los archivos a GitHub: son iguales a los publicados.
 
 - `netlify.toml` traía `publish = "C:\\convertir"`, que hacía fallar los deploys en Netlify. Se corrigió a
   `publish = "."` y se agregó `app-banner.html` en el PR #1 de convertir-ec.
-- Pendiente: unir ese PR y conectar el repo en Netlify (Project configuration → **Developer settings** →
-  Repository → **Link repository**). La configuración de compilación sale de `netlify.toml`.
+- **Netlify ya está conectado al repo** (rama `main`): cada push a `main` se publica solo. La configuración
+  sale de `netlify.toml`. `app-banner.html` está publicado y funcionando.
 - `setup/convertir-api.sh` instala el backend Office↔PDF (Docker, `convertir-api.duckdns.org:8443`). Hoy
   también se publica en la web (no tiene claves; el token de DuckDNS se pide al ejecutarlo).
 - Web: **Adsterra**, con dominios `highrevenueformat.com` y `profitableratecpmnetwork.com`, en `/js/common.js`:
