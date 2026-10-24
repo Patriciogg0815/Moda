@@ -139,6 +139,10 @@ https://patriciogg0815.github.io/Moda/MonitorRed/store/privacidad.html
 > el fabricante (Samsung, Apple, LG, Xiaomi, TP-Link y miles más) y si está en línea. Los equipos que
 > aparecen por primera vez se marcan como "Nuevo" para que detectes intrusos.
 >
+> **Te avisa cuando alguien se conecta**
+> Mientras la app está abierta, revisa la red cada pocos minutos y te muestra una notificación cuando se
+> conecta un equipo nuevo o cuando un equipo se apaga o sale de la red.
+>
 > **Ponle nombre a cada equipo**
 > Cambia "Samsung Electronics" por "Smart TV sala" o "Xiaomi" por "Teléfono de Ana". La app recuerda los
 > nombres para la próxima vez.
@@ -159,11 +163,16 @@ https://patriciogg0815.github.io/Moda/MonitorRed/store/privacidad.html
 **Novedades de esta versión**
 > Primera versión en la Microsoft Store.
 
+Para la **próxima actualización** (cuando se envíe un `.msix` con las alertas), usa este texto:
+> Nuevo: alertas. La app te avisa con una notificación cuando se conecta un equipo nuevo a tu red o
+> cuando un equipo se desconecta. Se configuran en Ajustes → Alertas.
+
 **Características del producto** (una por línea)
 - Lista todos los equipos conectados a tu red Wi-Fi o cableada
 - Muestra IP, MAC, fabricante y nombre de cada equipo
 - Detecta televisores, consolas, cámaras y electrodomésticos inteligentes
 - Marca los equipos nuevos para detectar intrusos
+- Te avisa cuando se conecta un equipo nuevo o uno se desconecta
 - Nombres personalizados para cada equipo
 - Consumo total de internet de la casa por UPnP, sin claves
 - Consumo de internet de esta PC en tiempo real, automático

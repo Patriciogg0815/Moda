@@ -1,0 +1,17 @@
+--- a/proyectos.html
++++ b/proyectos.html
+@@ -182,10 +182,10 @@
+     <div class="app-foot"><div class="soon-badges"><span class="soon-badge" title="Próximamente en Google Play"><img src="/img/badges/google-play-pronto.webp" alt="Próximamente en Google Play" width="186" height="58" loading="lazy"></span><span class="soon-badge" title="Próximamente en App Store"><img src="/img/badges/app-store-pronto.webp" alt="Próximamente en App Store" width="205" height="58" loading="lazy"></span></div></div>
+ </article>
+ <article class="app-card">
+-    <div class="app-head"><img class="app-icon" src="/img/apps/monitorred.webp" alt="Ícono de Monitor de Red de Casa" width="72" height="72" loading="lazy"><div><h3>Monitor de Red de Casa</h3><span class="app-cat">Windows 10/11 · Microsoft Store</span></div></div>
+-    <p>Mira todos los equipos conectados a tu red de casa, con su nombre, IP, MAC y fabricante, y cuánto internet se está usando.</p>
+-    <div class="tags"><span class="tag">PowerShell + WPF</span><span class="tag">C#</span><span class="tag">UPnP</span><span class="tag">MSIX</span></div>
+-    <div class="app-foot"><div class="soon-badges"><span class="soon-badge" title="Próximamente en Microsoft Store"><img src="/img/badges/microsoft-store-pronto.webp" alt="Próximamente en Microsoft Store" width="112" height="58" loading="lazy"></span></div></div>
++    <div class="app-head"><img class="app-icon" src="/img/apps/monitorred.webp" alt="Ícono de Monitor de Red de Casa" width="72" height="72" loading="lazy"><div><h3>Monitor de Red de Casa</h3><span class="app-cat">Windows 10/11 · Android</span></div></div>
++    <p>Mira todos los equipos conectados a tu red de casa y recibe un aviso cuando se conecta un equipo nuevo o uno se desconecta. En Windows también muestra la MAC, el fabricante y cuánto internet se está usando.</p>
++    <div class="tags"><span class="tag">PowerShell + WPF</span><span class="tag">Kotlin</span><span class="tag">Jetpack Compose</span><span class="tag">UPnP</span></div>
++    <div class="app-foot"><div class="soon-badges"><span class="soon-badge" title="Próximamente en Microsoft Store"><img src="/img/badges/microsoft-store-pronto.webp" alt="Próximamente en Microsoft Store" width="112" height="58" loading="lazy"></span><span class="soon-badge" title="Próximamente en Google Play"><img src="/img/badges/google-play-pronto.webp" alt="Próximamente en Google Play" width="186" height="58" loading="lazy"></span></div></div>
+ </article>
+ <article class="app-card">
+     <div class="app-head"><img class="app-icon" src="/img/apps/respaldodrivers.webp" alt="Ícono de RespaldoDrivers" width="72" height="72" loading="lazy"><div><h3>RespaldoDrivers</h3><span class="app-cat">Windows 10/11 · Microsoft Store</span></div></div>

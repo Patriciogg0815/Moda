@@ -23,6 +23,21 @@ Por cada equipo:
 
 También permite buscar, filtrar por tipo, mostrar los equipos desconectados y **exportar la lista a Excel**.
 
+## Alertas
+
+Mientras la app está abierta (aunque esté minimizada) revisa la red cada pocos minutos (1, 2, 5, 10 o 15;
+por defecto 2) y avisa con una **notificación de Windows** junto al reloj:
+
+- **Se conectó un equipo nuevo**: uno que la app nunca había visto en esta red.
+- **Se desconectó un equipo**: se apagó o salió de la red. Se avisa recién cuando falta en **2 revisiones
+  seguidas**, para no avisar por un corte de un momento. Se puede limitar a los equipos que tienen un
+  nombre puesto por el usuario.
+
+Si la revisión no es confiable (otra red, error o el router no respondió) no se avisa ninguna desconexión,
+para no decir que se apagaron todos los equipos. Al hacer clic en la notificación se abre la app con ese
+equipo elegido. Todo se configura en **Ajustes → Alertas**, que también tiene "Probar la notificación".
+La revisión automática es un escaneo aparte: no reinicia la medición del consumo.
+
 ## Descargar y usar
 
 - **Versión de prueba de una rama:** pestaña **Actions** → ejecución "Monitor de Red" → sección

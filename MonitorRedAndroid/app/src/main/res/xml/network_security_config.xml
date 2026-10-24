@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Los routers, televisores e impresoras de la casa solo hablan HTTP (sin "s") para UPnP.
+     La app no se conecta a internet: solo a los equipos de la red local. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
