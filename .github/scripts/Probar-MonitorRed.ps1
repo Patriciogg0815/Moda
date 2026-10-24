@@ -110,6 +110,21 @@ Assert ([MonitorRed.OuiDatabase]::Lookup('F8:4D:89:00:00:01') -eq 'Apple') 'Lee 
 Assert ([MonitorRed.OuiDatabase]::Lookup('8C:79:F5:00:00:01') -eq 'Samsung') "Nombres en mayúsculas quedan legibles: $([MonitorRed.OuiDatabase]::Lookup('8C:79:F5:00:00:01'))"
 Assert ([MonitorRed.OuiDatabase]::Lookup('70:B3:D5:1F:00:01') -eq 'Example Tech') "Bloques de 28 bits y sin la ciudad: $([MonitorRed.OuiDatabase]::Lookup('70:B3:D5:1F:00:01'))"
 
+# Proxy ARP / repetidor: la misma MAC en varias IPs
+$pn = New-Object MonitorRed.LocalNetwork
+$pn.LocalIp = '10.1.0.4'; $pn.Gateway = '10.1.0.1'
+[MonitorRed.Net]::SetRange($pn, 24)
+$ps = New-Object MonitorRed.ScanSession($pn)
+$ps.Report('10.1.0.4', '00:22:48:4A:AF:2A', 0)
+$ps.Report('10.1.0.1', '12:34:56:78:9A:BC', -1)
+foreach ($i in 5..30) { $ps.Report("10.1.0.$i", '12:34:56:78:9A:BC', -1) }
+$ps.Report('10.1.0.40', '12:34:56:78:9A:BC', 12)
+Assert ($ps.TakeChanges().Count -eq 0) 'La ventana no recibe equipos antes de revisar las MAC compartidas'
+$ps.MarkSharedMacs()
+$seen = @($ps.TakeChanges() | Sort-Object IpValue)
+Assert ($seen.Count -eq 3 -and ($seen | ForEach-Object { $_.Ip }) -join ',' -eq '10.1.0.1,10.1.0.4,10.1.0.40') "Se quitan las IPs fantasma del proxy ARP: $(($seen | ForEach-Object { $_.Ip }) -join ', ')"
+Assert ((Get-MacKey $seen[2]) -eq 'IP:10.1.0.40' -and (Get-MacKey $seen[1]) -eq '00:22:48:4A:AF:2A') 'Con MAC compartida el equipo se recuerda por IP'
+
 if ($Fabricantes) {
     $script:EmbeddedOui = [Convert]::ToBase64String([IO.File]::ReadAllBytes($Fabricantes))
     [MonitorRed.OuiDatabase]::Load('')
@@ -248,6 +263,7 @@ $net = New-Object MonitorRed.LocalNetwork
 $net.InterfaceName = 'Wi-Fi'; $net.LocalIp = '192.168.1.10'; $net.Gateway = '192.168.1.1'
 [MonitorRed.Net]::SetRange($net, 24)
 $g.Networks = @($net)
+$g.CbNetwork.Visibility = 'Collapsed'
 $g.Session = [pscustomobject]@{ IsCompleted = $true; InternetGateways = @($u); Error = '' }
 $g.SeenKeys = @{}; $g.ByIp = @{}; $g.ScanStarted = (Get-Date).AddSeconds(-14); $g.HadHistory = $true
 $g.TxtSubtitle.Text = "Red $($net.Summary)  ·  Este equipo: $($net.LocalIp)  ·  Router: $($net.Gateway)"

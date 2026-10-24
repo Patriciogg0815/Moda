@@ -116,4 +116,7 @@ powershell -ExecutionPolicy Bypass -File .\MonitorRed\MonitorRed.ps1 -GenerarFab
   "olvidar" la red). El nombre que les pongas se asocia a la MAC.
 - Equipos dormidos (TVs en espera, teléfonos con la pantalla apagada) a veces no responden; aparecen al
   escanear de nuevo.
+- Algunos routers responden ARP por todas las IPs con su propia MAC (proxy ARP), y los repetidores Wi-Fi
+  pueden mostrar su MAC en lugar de la de los equipos conectados a ellos. Cuando una MAC aparece en varias
+  IPs, la app descarta las que no responden al ping y recuerda las demás por su IP.
 - El tipo es una estimación: se basa en el nombre, UPnP y el fabricante de la tarjeta de red.

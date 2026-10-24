@@ -217,7 +217,7 @@ function Get-AutoName {
 }
 
 function Get-MacKey($Record) {
-    if ($Record.Mac) { return $Record.Mac }
+    if ($Record.Mac -and -not $Record.SharedMac) { return $Record.Mac }
     "IP:$($Record.Ip)"
 }
 
@@ -1069,6 +1069,12 @@ namespace MonitorRed
         public bool IsGateway;
         public bool IsSelf;
         public bool NamesDone;
+        // Varias IPs responden con la misma MAC: un repetidor Wi-Fi que "traduce" MACs o un router con proxy ARP
+        public bool SharedMac;
+        // Fantasma de proxy ARP (MAC compartida y no responde): la ventana lo quita de la lista
+        public bool Removed;
+        // La ventana recibe los equipos recién cuando se revisaron las MAC compartidas
+        public bool Ready;
         public List<UpnpInfo> Upnp = new List<UpnpInfo>();
     }
 
@@ -1090,6 +1096,7 @@ namespace MonitorRed
         volatile int _percent;
         string _error = "";
         readonly List<UpnpInfo> _gateways = new List<UpnpInfo>();
+        bool _marked;
 
         public ScanSession(LocalNetwork network) { Network = network; }
 
@@ -1098,7 +1105,10 @@ namespace MonitorRed
         public string Phase { get { return _phase; } }
         public int Percent { get { return _percent; } }
         public string Error { get { return _error; } }
-        public int FoundCount { get { lock (_lock) return _records.Count; } }
+        public int FoundCount
+        {
+            get { lock (_lock) { int n = 0; foreach (HostRecord r in _records.Values) if (!r.Removed) n++; return n; } }
+        }
 
         public UpnpInfo[] InternetGateways { get { lock (_lock) return _gateways.ToArray(); } }
 
@@ -1116,15 +1126,58 @@ namespace MonitorRed
             lock (_lock)
             {
                 List<HostRecord> list = new List<HostRecord>();
-                foreach (string ip in _changed) list.Add(_records[ip]);
+                List<string> pending = new List<string>();
+                foreach (string ip in _changed)
+                {
+                    HostRecord r = _records[ip];
+                    if (!r.Ready) pending.Add(ip);
+                    else if (!r.Removed) list.Add(r);
+                }
                 _changed.Clear();
+                foreach (string ip in pending) _changed.Add(ip);
                 return list.ToArray();
             }
         }
 
         public HostRecord[] GetAll()
         {
-            lock (_lock) { return new List<HostRecord>(_records.Values).ToArray(); }
+            lock (_lock)
+            {
+                List<HostRecord> list = new List<HostRecord>();
+                foreach (HostRecord r in _records.Values) if (!r.Removed) list.Add(r);
+                return list.ToArray();
+            }
+        }
+
+        // Algunos routers (y las redes en la nube) responden ARP por todas las IPs con su propia MAC.
+        // Si una MAC aparece en varias IPs: se quitan las que no responden al ping (no son equipos reales)
+        // y las demás se marcan para recordarlas por IP en vez de por MAC.
+        public void MarkSharedMacs()
+        {
+            lock (_lock)
+            {
+                _marked = true;
+                Dictionary<string, List<HostRecord>> byMac = new Dictionary<string, List<HostRecord>>();
+                foreach (HostRecord r in _records.Values)
+                {
+                    r.Ready = true;
+                    _changed.Add(r.Ip);
+                    if (r.Mac.Length == 0 || r.IsSelf) continue;
+                    List<HostRecord> l;
+                    if (!byMac.TryGetValue(r.Mac, out l)) { l = new List<HostRecord>(); byMac[r.Mac] = l; }
+                    l.Add(r);
+                }
+                foreach (List<HostRecord> group in byMac.Values)
+                {
+                    if (group.Count < 2) continue;
+                    foreach (HostRecord r in group)
+                    {
+                        r.SharedMac = true;
+                        if (r.PingMs < 0 && !r.IsGateway) r.Removed = true;
+                        _changed.Add(r.Ip);
+                    }
+                }
+            }
         }
 
         HostRecord Touch(string ip)
@@ -1137,6 +1190,7 @@ namespace MonitorRed
                 r.IpValue = Net.ToUInt(ip);
                 r.IsGateway = ip == Network.Gateway;
                 r.IsSelf = ip == Network.LocalIp;
+                r.Ready = _marked;
                 _records[ip] = r;
             }
             _changed.Add(ip);
@@ -1182,6 +1236,7 @@ namespace MonitorRed
                         if (isNew) r.ArpOnly = true;
                     }
                 }
+                MarkSharedMacs();
                 _percent = 72;
 
                 ResolveNames();
@@ -1828,13 +1883,13 @@ $script:Xaml = @'
           <TextBlock x:Name="Gl" Style="{StaticResource Icon}" Text="{Binding Glyph}" FontSize="17" Foreground="{StaticResource Accent}"/>
         </Border>
         <StackPanel Grid.Column="1" VerticalAlignment="Center">
+          <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding DisplayName}"/>
           <StackPanel Orientation="Horizontal">
-            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="260"/>
-            <Border x:Name="BadgeBox" Style="{StaticResource Pill}" Background="{StaticResource AccentLight}">
+            <TextBlock Text="{Binding TypeLabel}" FontSize="12" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
+            <Border x:Name="BadgeBox" Style="{StaticResource Pill}" Background="{StaticResource AccentLight}" Padding="7,0">
               <TextBlock Text="{Binding Badge}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Accent}"/>
             </Border>
           </StackPanel>
-          <TextBlock Text="{Binding TypeLabel}" FontSize="12" Foreground="{StaticResource TextSecondary}"/>
         </StackPanel>
       </Grid>
       <DataTemplate.Triggers>
@@ -1969,7 +2024,7 @@ $script:Xaml = @'
     </Style>
   </Window.Resources>
 
-  <Grid>
+  <Grid Background="#F3F3F3">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
@@ -2332,6 +2387,7 @@ function Get-DeviceDetails($Device, $Record, $Facts, $Known) {
     $lines += "Dirección IP: $($Record.Ip)"
     $macNote = if ($Facts.IsRandomMac) { ' (privada: el equipo la cambia para proteger su privacidad)' } else { '' }
     $lines += "Dirección MAC: $(if ($Record.Mac) { $Record.Mac } else { 'no se pudo leer' })$macNote"
+    if ($Record.SharedMac) { $lines += 'Varias IPs usan esta misma MAC (por ejemplo, equipos detrás de un repetidor Wi-Fi), así que el nombre se recuerda por la IP.' }
     $lines += "Fabricante: $(if ($Facts.Vendor) { $Facts.Vendor } elseif ($Facts.IsRandomMac) { 'no se sabe (MAC privada)' } else { '—' })"
     $names = @()
     if ($Record.MdnsName) { $names += "$($Record.MdnsName) (mDNS)" }
@@ -2352,6 +2408,7 @@ function Get-DeviceDetails($Device, $Record, $Facts, $Known) {
 # Pasa lo que averiguó el escáner sobre una IP a la fila de la lista (y a lo guardado)
 function Update-DeviceFromRecord($Record) {
     $g = $script:Gui
+    if ($Record.Removed) { return }
     $facts = Get-DeviceFacts $Record $g.IsLaptop
     $key = $facts.Key
 
@@ -2692,7 +2749,7 @@ function Update-SettingsPage {
         $intercept = $script:MeasurementModes | Where-Object { $_.Id -eq 'Intercept' }
         $g.InterceptSection.Visibility = if ($intercept) { 'Visible' } else { 'Collapsed' }
         $order = @($script:MeasurementModes | Sort-Object { $_.Priority } | ForEach-Object {
-            if ($_.RequiresConsent) { "$($_.Name.ToLower()) (solo si lo permitiste)" } else { $_.Name.ToLower() } })
+            if ($_.RequiresConsent) { "$($_.Name) (solo si lo permitiste)" } else { $_.Name } })
         $g.TxtAutoDesc.Text = "Usa el mejor modo disponible, en este orden: $($order -join ', ')."
         if ($intercept) { $g.TxtInterceptWarning.Text = $intercept.Warning }
         $admin = if (Test-IsAdmin) { 'sí' } else { 'no' }
