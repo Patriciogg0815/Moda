@@ -1,0 +1,105 @@
+# Monitor de Red para Android: prueba la app, saca las capturas para Google Play y compila.
+# - APK de prueba (artifact MonitorRed-Android-1.0.N): se instala directo en el teléfono.
+# - Kit para Google Play (artifact GooglePlay-MonitorRed-1.0.N): .aab, capturas, ícono, gráfico, ficha y política.
+#   El .aab se firma con la clave de subida si están los secretos MONITORRED_KEYSTORE_BASE64,
+#   MONITORRED_KEYSTORE_PASSWORD, MONITORRED_KEY_ALIAS y MONITORRED_KEY_PASSWORD (ver MonitorRedAndroid/README.md).
+name: Monitor de Red Android
+
+on:
+  push:
+    paths:
+      - 'MonitorRedAndroid/**'
+      - '.github/workflows/monitor-red-android.yml'
+  pull_request:
+    paths:
+      - 'MonitorRedAndroid/**'
+      - '.github/workflows/monitor-red-android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: MonitorRedAndroid
+    env:
+      VERSION: 1.0.${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Android 16 (API 36)
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" > /dev/null
+
+      - name: Pruebas y capturas para Google Play
+        run: ./gradlew testDebugUnitTest -Proborazzi.test.record=true --console=plain
+
+      - name: Clave de subida de Google Play
+        env:
+          KEYSTORE_B64: ${{ secrets.MONITORRED_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/subida.jks"
+            echo "MONITORRED_KEYSTORE=$RUNNER_TEMP/subida.jks" >> "$GITHUB_ENV"
+            echo "El .aab se firma con la clave de subida."
+          else
+            echo "::warning::Sin los secretos de la clave de subida: el .aab sale sin firmar (se firma en la PC)."
+          fi
+
+      - name: Compilar el APK de prueba y el .aab
+        env:
+          MONITORRED_KEYSTORE_PASSWORD: ${{ secrets.MONITORRED_KEYSTORE_PASSWORD }}
+          MONITORRED_KEY_ALIAS: ${{ secrets.MONITORRED_KEY_ALIAS }}
+          MONITORRED_KEY_PASSWORD: ${{ secrets.MONITORRED_KEY_PASSWORD }}
+        run: ./gradlew assembleDebug bundleRelease --console=plain
+
+      - name: Armar el APK de prueba y el kit para Google Play
+        run: |
+          mkdir -p dist/apk dist/kit/capturas
+          cp app/build/outputs/apk/debug/app-debug.apk "dist/apk/MonitorRed-prueba-$VERSION.apk"
+          cp app/build/outputs/bundle/release/app-release.aab "dist/kit/MonitorRed-$VERSION.aab"
+          cp app/build/capturas-play/*.png dist/kit/capturas/
+          cp play/* dist/kit/
+          ls -R dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MonitorRed-Android-${{ env.VERSION }}
+          path: MonitorRedAndroid/dist/apk/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GooglePlay-MonitorRed-${{ env.VERSION }}
+          path: MonitorRedAndroid/dist/kit/
+
+      # Prueba en un teléfono emulado (Android 15): abre la app, escanea la red y revisa que no se cierre
+      - name: Habilitar la aceleración del emulador
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Probar en el emulador
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          working-directory: MonitorRedAndroid
+          script: ./prueba-emulador.sh
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: emulador-monitor-red
+          path: MonitorRedAndroid/build/emulador/
