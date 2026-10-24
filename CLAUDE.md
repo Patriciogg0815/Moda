@@ -70,8 +70,9 @@ consume cada uno. Mismo estilo que RespaldoDrivers: PowerShell + WPF, con el esc
 - PR #4 unido a `main` (versión publicada `monitor-red-v1.0.16`).
 - Microsoft Store: `monitor-red.yml` genera y prueba `MonitorRed.msix`, y arma el artifact
   `MicrosoftStore-MonitorRed-1.0.N` (msix, logos, arte, capturas reales de la edición Store y la ficha).
-  Nombre reservado en Partner Center: **Monitor de Red de Casa** (`DisplayName`). Falta copiar el
-  `IdentityName` (Package/Identity/Name) en `MonitorRed/store/identidad.json`.
+  Nombre reservado en Partner Center: **Monitor de Red de Casa**, identidad
+  `GarridoitSolutions.MonitordeReddeCasa` (PFN `GarridoitSolutions.MonitordeReddeCasa_qketwn0rzx7t0`).
+  Ya completa en `MonitorRed/store/identidad.json`: el `.msix` del kit sirve para enviar.
 - Pendiente: conectores de routers (modo 1).
 
 ### 3. QuéVeo (Android) — **no está en `main`**

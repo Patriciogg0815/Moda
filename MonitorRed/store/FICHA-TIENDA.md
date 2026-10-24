@@ -48,8 +48,8 @@ Misma estructura que `store/` de RespaldoDrivers:
 1. Entra a [Partner Center](https://partner.microsoft.com/dashboard/apps-and-games/overview) →
    **Aplicaciones y juegos** → **Nueva aplicación** → **Aplicación MSIX o PWA**.
 2. Nombre reservado: **Monitor de Red de Casa** (ya está en `identidad.json` → `DisplayName`).
-3. Ve a **Administración de productos → Identidad del producto** y copia **Package/Identity/Name**
-   en `identidad.json` → `IdentityName` (será algo como `GarridoitSolutions.MonitordeRed`).
+3. **Package/Identity/Name** (en **Administración de productos → Identidad del producto**):
+   `GarridoitSolutions.MonitordeReddeCasa`, ya copiado en `identidad.json` → `IdentityName`.
    `Publisher` y `PublisherDisplayName` ya están completos porque son los mismos de RespaldoDrivers.
 4. Guarda el cambio en GitHub (o envía el valor a Claude). GitHub volverá a generar el `.msix`.
 
