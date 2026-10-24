@@ -1839,7 +1839,7 @@ $script:MeasurementModes = @(
     @{
         Id = 'Intercept'; Number = 3; Priority = 3; Name = 'Interceptar el tráfico (avanzado)'; Scope = 'Por equipo'; Glyph = 0xE7BA
         Description = 'Esta PC se pone "en medio" entre los equipos y el router (ARP) para contar el tráfico de cada uno. Funciona con cualquier router.'
-        Warning = 'Modo avanzado: puede hacer más lenta la red, algunos antivirus y routers lo bloquean, y solo debes usarlo en tu propia red. Necesita permisos de administrador y el controlador Npcap.'
+        Warning = 'Modo avanzado: puede hacer más lenta la red, algunos antivirus y routers lo bloquean, y solo debes usarlo en tu propia red. Necesita el controlador Npcap (gratis, en npcap.com) y abrir la app como administrador.'
         RequiresConsent = $true; Implemented = $true
         Test = { param($Ctx) Test-InterceptMode $Ctx }
         Read = { param($Ctx) @() }   # La captura la maneja la ventana (Start/Stop-InterceptCapture), como UPnP.
@@ -1906,9 +1906,12 @@ function Test-NpcapInstalled {
 }
 
 function Test-InterceptMode($Ctx) {
-    if (-not $Ctx.Settings.InterceptConsent) { return @{ Available = $false; Reason = 'Desactivado. Actívalo abajo si entiendes los riesgos.' } }
-    if (-not $Ctx.IsAdmin) { return @{ Available = $false; Reason = 'Abre la app como administrador para usar este modo.' } }
-    if (-not (Test-NpcapInstalled)) { return @{ Available = $false; Reason = 'Falta instalar Npcap (npcap.com), el controlador para capturar tráfico.' } }
+    if (-not $Ctx.Settings.InterceptConsent) { return @{ Available = $false; Reason = 'Desactivado. Actívalo en Ajustes si entiendes los riesgos.' } }
+    # Muestra TODO lo que falta a la vez (no solo lo primero), para que el usuario lo vea de un vistazo.
+    $missing = @()
+    if (-not (Test-NpcapInstalled)) { $missing += 'instalar Npcap (gratis, desde npcap.com)' }
+    if (-not $Ctx.IsAdmin) { $missing += 'abrir la app como administrador' }
+    if ($missing.Count -gt 0) { return @{ Available = $false; Reason = "Falta $($missing -join ' y ') para medir el consumo por equipo." } }
     @{ Available = $true; Reason = 'Listo para interceptar el tráfico.' }
 }
 
@@ -2618,6 +2621,9 @@ $script:Xaml = @'
               <TextBlock Text="Interceptar el tráfico de la red" FontWeight="SemiBold" VerticalAlignment="Center"/>
             </StackPanel>
             <TextBlock x:Name="TxtInterceptWarning" TextWrapping="Wrap" Margin="0,8,0,10"/>
+            <TextBlock FontWeight="SemiBold" Margin="0,0,0,4" Text="Para medir el consumo por equipo, este modo necesita 2 cosas:"/>
+            <TextBlock x:Name="TxtInterceptReqNpcap" TextWrapping="Wrap" Margin="0,0,0,2"/>
+            <TextBlock x:Name="TxtInterceptReqAdmin" TextWrapping="Wrap" Margin="0,0,0,10"/>
             <CheckBox x:Name="ChkIntercept" Content="Entiendo los riesgos y quiero permitir este modo en mi propia red"/>
             <TextBlock x:Name="TxtInterceptStatus" TextWrapping="Wrap" FontSize="12" Foreground="#5F5F5F" Margin="0,8,0,0"/>
           </StackPanel>
@@ -3316,11 +3322,29 @@ function Update-SettingsPage {
         $order = @($script:MeasurementModes | Sort-Object { $_.Priority } | ForEach-Object {
             if ($_.RequiresConsent) { "$($_.Name) (solo si lo permitiste)" } else { $_.Name } })
         $g.TxtAutoDesc.Text = "Usa el mejor modo disponible, en este orden: $($order -join ', ')."
-        if ($intercept) { $g.TxtInterceptWarning.Text = $intercept.Warning }
-        if (-not $g.Interceptor) {
-            $admin = if (Test-IsAdmin) { 'sí' } else { 'no' }
-            $npcap = if (Test-NpcapInstalled) { 'instalado' } else { 'no instalado' }
-            $g.TxtInterceptStatus.Text = "App abierta como administrador: $admin  ·  Npcap: $npcap"
+        if ($intercept) {
+            $g.TxtInterceptWarning.Text = $intercept.Warning
+            $hasNpcap = Test-NpcapInstalled
+            $isAdmin = Test-IsAdmin
+            $g.TxtInterceptReqNpcap.Text = if ($hasNpcap) {
+                '✓  Npcap instalado.'
+            } else {
+                '✗  Falta Npcap. Descárgalo gratis en npcap.com e instálalo (deja marcadas las opciones por defecto).'
+            }
+            $g.TxtInterceptReqNpcap.Foreground = if ($hasNpcap) { '#107C10' } else { '#B00020' }
+            $g.TxtInterceptReqAdmin.Text = if ($isAdmin) {
+                '✓  La app está abierta como administrador.'
+            } else {
+                '✗  Abre la app como administrador: ciérrala, clic derecho en MonitorRed.exe → «Ejecutar como administrador».'
+            }
+            $g.TxtInterceptReqAdmin.Foreground = if ($isAdmin) { '#107C10' } else { '#B00020' }
+            if (-not $g.Interceptor) {
+                $g.TxtInterceptStatus.Text = if ($hasNpcap -and $isAdmin) {
+                    'Todo listo. Elige «Interceptar el tráfico» como modo de medición (o déjalo en Automático) para ver el consumo de cada equipo.'
+                } else {
+                    'Cuando tengas las 2 cosas, las columnas Bajada/Subida de cada equipo se llenarán solas.'
+                }
+            }
         }
         $g.TxtAbout.Text = "$script:AppName $script:AppVersion`nFabricantes conocidos: $([MonitorRed.OuiDatabase]::Count) bloques de direcciones MAC (registro público de la IEEE).`nTus nombres y ajustes se guardan en: $script:DataDir"
         Update-MeasurementUi

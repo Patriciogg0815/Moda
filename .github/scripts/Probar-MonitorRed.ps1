@@ -185,7 +185,7 @@ Assert (-not (Get-MeasurementState $ctx).Active) 'Sin UPnP ni otros modos, no ha
 if (-not $EdicionStore) {
     $ctx.Settings.InterceptConsent = $true
     $r = ((Get-MeasurementState $ctx).Results | Where-Object { $_.Mode.Id -eq 'Intercept' })
-    Assert (-not $r.Available -and $r.Reason -match 'administrador') "Interceptar pide administrador: $($r.Reason)"
+    Assert (-not $r.Available -and $r.Reason -match 'administrador' -and $r.Reason -match 'Npcap') "Interceptar avisa de Npcap y administrador: $($r.Reason)"
 }
 $ctx.Settings.MeasurementMode = 'RouterApi'
 $ctx.Session = $fakeSession
