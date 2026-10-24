@@ -440,6 +440,7 @@ $wz.Window.ShowActivated = $false
 $wz.Window.Content.Background = New-Brush '#F3F3F3'
 $wz.Window.Show()
 Update-UI
+Write-Host "Paso a paso: tipo=$($wz.GetType().Name) indice=[$($wz.Index)] pasos=$(@($wz.Steps).Count) primero=$($wz.Steps[0] | ConvertTo-Json -Compress -Depth 2) origen=$($v.Source.Steps[0] | ConvertTo-Json -Compress -Depth 2)"
 Write-Host "Paso a paso: contador='$($wz.WzCounter.Text)' comando=$($wz.WzCmdBox.Visibility) boton='$($wz.WzAction.Content)' pasos=$($v.StepCount)"
 Assert ($wz.WzCounter.Text -eq "Paso 1 de $($v.StepCount + 1)" -and $wz.WzCmdBox.Visibility -eq 'Visible' -and $wz.WzAction.Content -eq 'Hacerlo por mí') "Paso a paso: $($wz.WzCounter.Text) con comando y botón «Hacerlo por mí»"
 Assert (-not $wz.WzPrev.IsEnabled) 'En el primer paso no se puede ir atrás'

@@ -1076,11 +1076,11 @@ function Get-CpuGroups([hashtable]$Before, [double]$ElapsedCpuMs) {
             $grp = [pscustomobject]@{ Name = $p.ProcessName; Cpu = 0.0; Count = 0; Path = $null; Description = $null }
             $groups[$p.ProcessName] = $grp
         }
-        $grp.Cpu += [Math]::Max(0, $ms - $Before[$p.Id])
+        $grp.Cpu += [Math]::Max([double]0, [double]($ms - $Before[$p.Id]))
         $grp.Count++
         if (-not $grp.Path) { try { $grp.Path = $p.Path; $grp.Description = $p.Description } catch { } }
     }
-    foreach ($grp in $groups.Values) { $grp.Cpu = [Math]::Round(100 * $grp.Cpu / [Math]::Max(1, $ElapsedCpuMs), 1) }
+    foreach ($grp in $groups.Values) { $grp.Cpu = [Math]::Round(100 * $grp.Cpu / [Math]::Max([double]1, [double]$ElapsedCpuMs), 1) }
     @($groups.Values | Sort-Object Cpu -Descending)
 }
 
@@ -1778,7 +1778,7 @@ function Test-DiskSpace {
     $d = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$env:SystemDrive'"
     $free = [double]$d.FreeSpace
     $size = [double]$d.Size
-    $pct = [int][Math]::Round(100 * $free / [Math]::Max(1, $size))
+    $pct = [int][Math]::Round(100 * $free / [Math]::Max([double]1, $size))
     $steps = @(
         New-Step -Title 'Borra los archivos temporales' `
             -Text 'La app borra los archivos temporales de Windows y de los programas que tengan más de un día. No toca tus documentos.' `
@@ -2083,7 +2083,7 @@ function Invoke-Fix([string]$Id, $Arg) {
                     ForEach-Object { try { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction Stop } catch { } }
             }
             $after = (Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$env:SystemDrive'").FreeSpace
-            $freed = [Math]::Max(0, $after - $before)
+            $freed = [Math]::Max([double]0, [double]$after - [double]$before)
             $desc = "Archivos temporales borrados ($(Format-Size $freed))"
             $msg = "Listo. Se liberaron $(Format-Size $freed). Para liberar más, usa el Sensor de almacenamiento o el Liberador de espacio en disco (en el paso a paso)."
         }
