@@ -472,9 +472,9 @@ Save-Shot '4-pantallas-azules'
 # Avisos
 $g.AlertItems.Clear()
 foreach ($a in @(
-    @{ Title = 'Teams usa el 41 % del procesador'; Text = 'Lleva varios minutos así: calienta la PC y gasta batería. Haz clic para ver cómo cerrarlo.' }
-    @{ Title = 'La PC se despertó sola de madrugada'; Text = 'Salió de la suspensión a las 03:12. Haz clic para ver qué la despierta y evitarlo.' }
     @{ Title = 'Hubo una pantalla azul'; Text = 'Windows se detuvo con el error DRIVER_POWER_STATE_FAILURE. Haz clic para ver la causa y cómo arreglarlo.' }
+    @{ Title = 'La PC se despertó sola de madrugada'; Text = 'Salió de la suspensión a las 03:12. Haz clic para ver qué la despierta y evitarlo.' }
+    @{ Title = 'Teams usa el 41 % del procesador'; Text = 'Lleva varios minutos así: calienta la PC y gasta batería. Haz clic para ver cómo cerrarlo.' }
 )) { Add-AlertHistory $a }
 $times = @($now.AddMinutes(-25), $now.Date.AddHours(7).AddMinutes(3), $now.Date.AddDays(-2).AddHours(8).AddMinutes(16))
 for ($i = 0; $i -lt $g.AlertItems.Count; $i++) { $g.AlertItems[$i].Time = Format-Date $times[$i] }
@@ -498,7 +498,7 @@ Save-Shot '6-herramientas'
 # Resultado de un arreglo
 Show-Page 'PageResults'
 Update-FindingList 'hibernacion'
-Show-OverlayResult -Kind Ok -Title 'Listo' -ShowSupport `
+Show-OverlayResult -Kind Ok -Title 'Arreglado' -ShowSupport `
     -Text 'Listo. La hibernación está activada: con batería, después de 1 hora en suspensión la PC guarda todo y se apaga por completo. Además, «Hibernar» aparece en Inicio → botón de apagado.'
 Save-Shot '7-arreglado'
 Invoke-Click $g.OvClose

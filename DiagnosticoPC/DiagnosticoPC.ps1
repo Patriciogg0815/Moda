@@ -3426,7 +3426,7 @@ function Start-FindingFix($View) {
         try { Invoke-Recheck $f.Check $f.Id } catch { } finally { $g.IsBusy = $false }
     }
     $kind = if ($res.Ok) { 'Ok' } else { 'Error' }
-    $title = if ($res.Ok) { 'Listo' } else { 'No se pudo arreglar' }
+    $title = if ($res.Ok) { 'Arreglado' } else { 'No se pudo arreglar' }
     Show-OverlayResult -Kind $kind -Title $title -Text $res.Message -ShowSupport:$res.Ok
 }
 
