@@ -1,6 +1,25 @@
 # Publicar "Monitor de Red" en la Microsoft Store
 
-Esta carpeta contiene todo lo necesario para la Store (misma estructura que `store/` de RespaldoDrivers):
+## Descarga todo junto (el "kit")
+
+GitHub arma en cada cambio un `.zip` con todo lo que pide Partner Center: pestaña **Actions** → ejecución
+**"Monitor de Red"** más reciente de la rama `main` → sección **Artifacts** → **`MicrosoftStore-MonitorRed-1.0.N`**.
+Dentro vienen:
+
+| En el kit | Dónde va en Partner Center |
+|---|---|
+| `MonitorRed.msix` | **Paquetes** |
+| `capturas/1-equipos.png`, `2-detalle.png`, `3-ajustes.png` | **Ficha → Capturas de pantalla** (capturas reales de la edición Store) |
+| `LogoTienda-300x300.png`, `-150x150`, `-71x71` | **Ficha → Imágenes para mostrar en Store (1:1)** |
+| `ArteSuperheroe-3840x2160.png` / `-1920x1080.png` | **Ficha → Arte de superhéroe (16:9)** |
+| `FICHA-TIENDA.md` | Esta guía, con todos los textos para copiar |
+
+> ⚠️ Usa el kit generado **después** de completar `IdentityName` (Paso 1). El de antes sirve para probar,
+> pero Partner Center lo rechaza con un error de identidad.
+
+## Archivos de esta carpeta
+
+Misma estructura que `store/` de RespaldoDrivers:
 
 | Archivo | Para qué sirve |
 |---|---|
@@ -9,9 +28,9 @@ Esta carpeta contiene todo lo necesario para la Store (misma estructura que `sto
 | `Assets/` | Íconos de la app en todos los tamaños |
 | `LogoTienda-300x300.png`, `-150x150`, `-71x71` | Logos para la ficha de la tienda (1:1) |
 | `ArteSuperheroe-3840x2160.png` / `-1920x1080.png` | Arte de superhéroe (16:9), sin texto |
-| `capturas-maqueta/` | **Maquetas** de las 3 pantallas (ver la advertencia del Paso 4) |
+| `capturas-maqueta/` | Maquetas de las 3 pantallas (solo de referencia: en la Store van las capturas reales del kit) |
 | `privacidad.html` | Política de privacidad (hay que publicarla en una dirección web) |
-| `Crear-MSIX.ps1` / `Probar-MSIX.ps1` | Arman y prueban el paquete |
+| `Crear-MSIX.ps1` / `Probar-MSIX.ps1` | Arman y prueban el paquete (GitHub Actions los ejecuta solo) |
 
 ---
 
@@ -47,7 +66,7 @@ En la app → **Envíos** → **Iniciar el envío**:
 ### Propiedades
 - **Categoría:** Utilidades y herramientas (subcategoría de red o conectividad, si la ofrece).
 - **URL de la política de privacidad:** https://patriciogg0815.github.io/Moda/MonitorRed/store/privacidad.html
-  (funciona cuando esta carpeta esté en `main`).
+  (ya está publicada).
 - **Sitio web:** https://github.com/Patriciogg0815/Moda (o tu sitio).
 - **Contacto de soporte:** patricio.garrido@garridoitsolutions.lat
 - **Requisitos del sistema:** teclado y mouse. Recomendado: conexión a una red Wi-Fi o cableada.
@@ -70,9 +89,14 @@ Resultado esperado: **3+ / Para todos (E)**.
 La app muestra un banner de Adsterra abajo de la ventana. Si Partner Center pregunta si el producto
 contiene anuncios, responde **Sí**. La descripción y la política de privacidad ya lo mencionan.
 
+### Donaciones (Ko-fi)
+La app es gratis y tiene un botón opcional "Apoyar a la app" que abre la página de donaciones de Ko-fi en el
+navegador. No desbloquea funciones ni vende contenido, así que no necesita las compras de la Store.
+En **Propiedades** no marques "contiene compras desde la aplicación".
+
 ### Paquetes
-Sube **`MonitorRed.msix`**, generado **después** de completar `identidad.json` (si no, Partner Center lo
-rechaza con un error de identidad).
+Sube **`MonitorRed.msix`** del kit, generado **después** de completar `identidad.json` (si no, Partner
+Center lo rechaza con un error de identidad).
 - Familia de dispositivos: solo **Escritorio** (Windows 10 versión 1809 o superior).
 
 ### Opciones de envío → Funcionalidades restringidas
@@ -96,8 +120,7 @@ Partner Center pedirá justificar `runFullTrust`. Texto sugerido:
 
 ## Paso 3 — Política de privacidad
 
-Igual que con RespaldoDrivers, GitHub Pages ya publica el repositorio desde `main`, así que cuando esta
-carpeta esté en `main` la dirección será:
+Igual que con RespaldoDrivers, GitHub Pages publica el repositorio desde `main`. Ya está en línea:
 
 https://patriciogg0815.github.io/Moda/MonitorRed/store/privacidad.html
 
@@ -135,9 +158,6 @@ https://patriciogg0815.github.io/Moda/MonitorRed/store/privacidad.html
 >
 > Exporta la lista de equipos a Excel (CSV) cuando la necesites.
 
-_Nota (no copiar): la medición de consumo y "Exportar a Excel" deben existir en la versión final; si
-no, quita esas frases (la Store rechaza descripciones que prometen funciones que no están)._
-
 **Novedades de esta versión**
 > Primera versión en la Microsoft Store.
 
@@ -154,15 +174,11 @@ no, quita esas frases (la Store rechaza descripciones que prometen funciones que
 **Términos de búsqueda** (máximo 7)
 `red wifi` · `quién usa mi wifi` · `escáner de red` · `dispositivos conectados` · `consumo de internet` · `monitor de red` · `ancho de banda`
 
-**Capturas de pantalla** (mínimo 1366×768; se usan en este orden):
-1. `1-equipos` — Lista de equipos conectados
-2. `2-detalle` — Detalle de un equipo con su nombre editable
-3. `3-ajustes` — Ajustes del escaneo y de la medición
-
-> **Importante:** las imágenes de `capturas-maqueta/` son **maquetas** hechas mientras la app se termina.
-> La Store exige que las capturas muestren la app real (política 10.1), así que antes de enviar descarga
-> el artifact `capturas-monitor-red` del workflow del monitor y usa las de la carpeta `capturas/store/`
-> (edición Store, mismos nombres, 1400×860). Las maquetas sirven como guía de cómo deberían verse.
+**Capturas de pantalla:** las de la carpeta `capturas/` del kit, en este orden. Son capturas reales de
+la edición Store con una casa de ejemplo (1384×821, más que el mínimo de 1366×768).
+1. `1-equipos.png` — Lista de equipos conectados
+2. `2-detalle.png` — Detalle de un equipo con su nombre editable
+3. `3-ajustes.png` — Ajustes de la medición del consumo
 
 **Texto de cada captura** (campo opcional "Leyenda")
 1. Todos los equipos conectados a tu red, con su fabricante
@@ -170,7 +186,7 @@ no, quita esas frases (la Store rechaza descripciones que prometen funciones que
 3. Mira cuánto internet usa tu casa y tu PC
 
 **Imágenes para mostrar en Store (1:1):** `LogoTienda-300x300.png`, `LogoTienda-150x150.png` y
-`LogoTienda-71x71.png`, cada una en su recuadro.
+`LogoTienda-71x71.png` del kit, cada una en su recuadro.
 
 **Arte de superhéroe (16:9):** `ArteSuperheroe-3840x2160.png` (o `ArteSuperheroe-1920x1080.png`). No lleva
 texto porque la Store muestra el nombre de la app encima.
@@ -183,26 +199,6 @@ Presiona **Enviar a la Store**. La certificación suele tardar de 1 a 3 días h�
 Partner Center indica el motivo; envía el informe a Claude para corregirlo.
 
 ---
-
-## Para el workflow del monitor (`.github/workflows/monitor-red.yml`)
-
-Pasos a agregar después del paso "Generar MonitorRed.exe", que ya crea la edición Store
-(`dist\store\MonitorRed.exe`):
-
-```yaml
-      - name: Generar paquete MSIX (Microsoft Store)
-        shell: powershell
-        run: .\MonitorRed\store\Crear-MSIX.ps1 -ExePath dist\store\MonitorRed.exe -Version "$env:VERSION.0" -OutputDir dist-store
-
-      - name: Probar instalación del MSIX
-        shell: powershell
-        run: .\MonitorRed\store\Probar-MSIX.ps1 -Package dist-store\MonitorRed.msix
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: MicrosoftStore-MonitorRed-${{ env.VERSION }}
-          path: dist-store/MonitorRed.msix
-```
 
 ### Nuevas versiones
 Cada cambio en `main` genera un `.msix` con un número de versión mayor (`1.0.N.0`). Para actualizar la
