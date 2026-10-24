@@ -108,6 +108,7 @@ Assert (([byte[]](Get-RegValue $testKey 'Binario'))[0] -eq 2) 'Deshacer devuelve
 # Programas que arrancan con Windows: uno que ya no existe
 $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
 $approvedKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run'
+if (-not (Test-Path $runKey)) { New-Item -Path $runKey -Force | Out-Null }
 New-ItemProperty -Path $runKey -Name 'DiagnosticoPCPrueba' -Value '"C:\NoExiste\programa.exe" /min' -PropertyType String -Force | Out-Null
 try {
     $e = Get-StartupEntries | Where-Object { $_.Name -eq 'DiagnosticoPCPrueba' }

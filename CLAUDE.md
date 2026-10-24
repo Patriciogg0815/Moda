@@ -78,6 +78,34 @@ consume cada uno. Mismo estilo que RespaldoDrivers: PowerShell + WPF, con el esc
   el `.msix` más reciente del artifact `MicrosoftStore-MonitorRed-1.0.N`.
 - Pendiente: conectores de routers (modo 1).
 
+### 2b. Diagnóstico PC (Windows) — rama `claude/nifty-archimedes-rqs2eo`
+
+Autodiagnóstico de Windows (idea del usuario: su laptop se calentaba en la mochila porque no hibernaba bien
+y tenía programas que no la dejaban suspender). Muestra cada revisión en rojo/amarillo/verde, con botón
+"Arreglar" y una **ventana aparte de paso a paso**, y **avisos** junto al reloj.
+
+- Código: `DiagnosticoPC/DiagnosticoPC.ps1` (PowerShell 5.1 + WPF, pide administrador), documentado en
+  `DiagnosticoPC/README.md`. Compila con `DiagnosticoPC/Crear-EXE.ps1` (`-EdicionStore` quita "Iniciar con
+  Windows", que usa una tarea programada `DiagnosticoPC-Avisos`).
+- Revisiones (`$script:Checks`): hibernación/"Hibernar tras" (lee `GetPwrCapabilities` y el plan con
+  `PowerReadACValueIndex`), tapa, `powercfg /requests`, reactivaciones de madrugada, plan, inicio rápido,
+  temperatura + evento 37, CPU/memoria por programa, arranque (StartupApproved, detecta archivos que
+  faltan), dispositivos con error, driver de video, pantallas azules (eventos 1001, Kernel-Power 41 y
+  cabecera de minidumps; las **confirma** y da la causa por código), volcados, registro (Shell/Userinit,
+  bloqueos, IFEO), `Repair-WindowsImage -CheckHealth`, disco, SMART, batería, antivirus, reinicio.
+- Arreglos (`Invoke-Fix`): piden confirmación, crean punto de restauración y guardan cómo deshacer en
+  `%APPDATA%\DiagnosticoPC\cambios.json` ("Herramientas y cambios" → Deshacer).
+- CI: `.github/workflows/diagnostico-pc.yml` + `.github/scripts/Probar-DiagnosticoPC.ps1` (lógica, análisis
+  real del runner, capturas con una laptop HP de ejemplo usando la lógica real con datos simulados).
+  `DIAGNOSTICOPC_PRUEBA=1` = modo prueba. En `main` publica el tag `diagnostico-pc-v1.0.N`.
+- Store: `DiagnosticoPC/store/` con ícono/logos/arte **propios** (índigo, laptop con pulso y 3 puntos de
+  colores; el usuario pidió que no se repitan imágenes de otras apps), privacidad y `FICHA-TIENDA.md` con
+  todos los textos. Kit: artifact `MicrosoftStore-DiagnosticoPC-1.0.N`. **Pendiente:** reservar el nombre
+  "Diagnóstico PC" en Partner Center y poner `IdentityName` en `store/identidad.json` (hoy dice PENDIENTE);
+  unir la rama a `main` para que se publique la política de privacidad en GitHub Pages.
+- Limitación conocida: no identifica el driver exacto de una pantalla azul (necesitaría WinDbg); da la
+  causa por el código del error.
+
 ### 3. QuéVeo (Android) — **no está en `main`**
 
 Recomienda películas y series y muestra en qué plataforma verlas (TMDB + JustWatch). Antes se llamaba "Moda".
