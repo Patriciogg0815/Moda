@@ -105,6 +105,20 @@ y tenía programas que no la dejaban suspender). Muestra cada revisión en rojo/
   unir la rama a `main` para que se publique la política de privacidad en GitHub Pages.
 - Limitación conocida: no identifica el driver exacto de una pantalla azul (necesitaría WinDbg); da la
   causa por el código del error.
+- **Prueba del usuario en su PC (24/10/2026, v1.0.9, HP ZBook Power 15.6 G10, Windows 11 Pro 26H2)** —
+  encontró estos problemas, que hay que corregir (estado al lado de cada uno):
+  1. **"Reparar archivos de Windows" no muestra si avanza o se colgó**: la ventana se queda en "Paso 1 de 2:
+     reparando la imagen de Windows con DISM..." con la barra moviéndose, sin porcentaje ni tiempo. Hace
+     falta: porcentaje de DISM/SFC en vivo (leer su salida mientras corre), tiempo transcurrido, aviso si
+     no hay avance en varios minutos ("DISM puede quedarse en 62,3 % un rato, es normal"), mensaje claro si
+     termina con error, y botón para cancelar. (Aplica a todo arreglo largo: `Long = $true` en `$script:FixInfo`.)
+  2. Hibernación: dijo "Con batería tarda 596523 horas y 14 min en hibernar". Windows guarda un valor
+     enorme que en realidad significa "Nunca": tratar valores ≥ 30 días como "Nunca" (rojo).
+  3. Driver de video: marcó "El driver de video es del 2019 – MS Idd Device", que es una pantalla virtual
+     de Microsoft. Revisar solo adaptadores reales (PNPDeviceID que empieza con `PCI\`).
+  4. El encabezado repite la marca: "HP HP ZBook...". Quitar el fabricante del modelo si ya empieza con él.
+  - Resultado real en su PC: 6 pantallas azules en 30 días, archivos de Windows dañados (reparables),
+    21 programas en el arranque, 2 apagones de golpe.
 
 ### 3. QuéVeo (Android) — **no está en `main`**
 
