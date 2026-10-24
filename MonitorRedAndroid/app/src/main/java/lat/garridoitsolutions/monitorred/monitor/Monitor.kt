@@ -20,6 +20,8 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import lat.garridoitsolutions.monitorred.R
@@ -43,6 +45,10 @@ data class RoundOutcome(
 // trabajo en segundo plano; el candado evita que corran 2 a la vez.
 object Monitor {
     private val lock = Mutex()
+    private val _rounds = MutableSharedFlow<RoundOutcome>(extraBufferCapacity = 1)
+
+    // Cada revisión terminada (también las de segundo plano), para que la pantalla se actualice sola
+    val rounds: SharedFlow<RoundOutcome> = _rounds
 
     fun selfName(context: Context): String =
         Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME)?.takeIf { it.isNotBlank() } ?: Build.MODEL
@@ -67,6 +73,7 @@ object Monitor {
             (scan.exceptionOrNull()?.let { " · error: $it" } ?: ""))
         AlertRules.format(result.alerts)?.let { Notifier.show(app, it) }
         RoundOutcome(net, state, scan.getOrNull()?.gateways.orEmpty(), result.alerts, scan.exceptionOrNull()?.message.orEmpty())
+            .also { _rounds.tryEmit(it) }
     }
 
     suspend fun saveDevice(context: Context, networkId: String, key: String, name: String, typeKey: String): NetworkState = lock.withLock {

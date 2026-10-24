@@ -1,6 +1,10 @@
 package lat.garridoitsolutions.monitorred.ui
 
 import android.app.Application
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.TrafficStats
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
@@ -25,6 +29,7 @@ import lat.garridoitsolutions.monitorred.monitor.DeviceItem
 import lat.garridoitsolutions.monitorred.monitor.Monitor
 import lat.garridoitsolutions.monitorred.monitor.Notifier
 import lat.garridoitsolutions.monitorred.monitor.Round
+import lat.garridoitsolutions.monitorred.monitor.RoundOutcome
 import lat.garridoitsolutions.monitorred.monitor.WatchWorker
 import lat.garridoitsolutions.monitorred.net.NetworkInfo
 import lat.garridoitsolutions.monitorred.net.Upnp
@@ -64,6 +69,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private var gateways: List<UpnpInfo> = emptyList()
     private var watchJob: Job? = null
     private var trafficJob: Job? = null
+    private var wifiCallback: ConnectivityManager.NetworkCallback? = null
+    private var lastShown: RoundOutcome? = null
 
     init {
         val net = NetworkInfo.current(app)
@@ -73,6 +80,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             _state.update { it.copy(network = net, items = Round.items(st, System.currentTimeMillis())) }
         }
         WatchWorker.schedule(app)
+        // Las revisiones de segundo plano también actualizan la pantalla
+        viewModelScope.launch {
+            Monitor.rounds.collect { if (it !== lastShown && !_state.value.scanning) show(it, "") }
+        }
     }
 
     fun setVersion(v: String) = _state.update { it.copy(version = v) }
@@ -90,11 +101,32 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         if (trafficJob?.isActive != true) trafficJob = viewModelScope.launch { measureTraffic() }
+        watchWifi()
     }
 
     fun onBackground() {
         watchJob?.cancel()
         trafficJob?.cancel()
+        wifiCallback?.let { runCatching { connectivity().unregisterNetworkCallback(it) } }
+        wifiCallback = null
+    }
+
+    private fun connectivity() = getApplication<Application>().getSystemService(ConnectivityManager::class.java)
+
+    // Si al abrir la app el teléfono todavía no estaba en el Wi-Fi, escanea apenas se conecta
+    private fun watchWifi() {
+        if (wifiCallback != null) return
+        val cb = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                viewModelScope.launch {
+                    delay(1500)
+                    val st = _state.value
+                    if (st.noNetwork || st.network == null || NetworkInfo.current(getApplication())?.id != st.network.id) scan()
+                }
+            }
+        }
+        val request = NetworkRequest.Builder().addTransportType(NetworkCapabilities.TRANSPORT_WIFI).build()
+        if (runCatching { connectivity().registerNetworkCallback(request, cb) }.isSuccess) wifiCallback = cb
     }
 
     fun scan() {
@@ -111,18 +143,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 return@launch
             }
-            gateways = outcome.gateways
-            val secs = (SystemClock.elapsedRealtime() - started) / 1000
-            val items = Round.items(outcome.state, System.currentTimeMillis())
-            val n = items.count { it.online }
-            val alert = AlertRules.format(outcome.alerts)
-            val status = when {
-                outcome.error.isNotEmpty() -> "El escaneo se detuvo por un error: ${outcome.error}"
-                alert != null -> "${alert.title}: ${alert.text}"
-                else -> "Escaneo terminado en $secs s: $n ${if (n == 1) "equipo conectado" else "equipos conectados"}. Toca un equipo para ponerle nombre."
-            }
-            _state.update { it.copy(scanning = false, noNetwork = false, network = outcome.network, items = items, progress = 100, status = status) }
+            show(outcome, " en ${(SystemClock.elapsedRealtime() - started) / 1000} s")
         }
+    }
+
+    private fun show(outcome: RoundOutcome, duration: String) {
+        lastShown = outcome
+        gateways = outcome.gateways
+        val items = Round.items(outcome.state, System.currentTimeMillis())
+        val n = items.count { it.online }
+        val alert = AlertRules.format(outcome.alerts)
+        val status = when {
+            outcome.error.isNotEmpty() -> "El escaneo se detuvo por un error: ${outcome.error}"
+            alert != null -> "${alert.title}: ${alert.text}"
+            else -> "Escaneo terminado$duration: $n ${if (n == 1) "equipo conectado" else "equipos conectados"}. Toca un equipo para ponerle nombre."
+        }
+        _state.update { it.copy(scanning = false, noNetwork = false, network = outcome.network, items = items, progress = 100, status = status) }
     }
 
     fun openDevice(key: String) = _state.update { it.copy(selectedKey = key, page = Page.DETAIL) }

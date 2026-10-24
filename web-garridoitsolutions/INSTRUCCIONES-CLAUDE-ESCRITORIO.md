@@ -1,4 +1,35 @@
-# Para Claude de escritorio: cambios en garridoitsolutions.lat (página Proyectos)
+# Para Claude de escritorio: cambios en garridoitsolutions.lat
+
+## Tanda 2 — PENDIENTE: Monitor de Red para Android (24/10/2026)
+
+Hay una app nueva para Android: **Monitor de Red de Casa** (carpeta `MonitorRedAndroid/` de este repo). Para
+enviarla a Google Play hace falta su política de privacidad publicada en el sitio. Archivos en `tanda-2/`:
+
+| Archivo | Va en el sitio como | Qué es |
+|---|---|---|
+| `monitorred-privacidad.html` | `/monitorred-privacidad.html` (nuevo) | Política de privacidad de la app de Android, con la plantilla de `coinid-privacidad` |
+| `proyectos.html` | `/proyectos.html` | La tarjeta "Monitor de Red de Casa" ahora dice Windows · Android, menciona las alertas y lleva las insignias "Coming Soon" de Microsoft Store **y** de Google Play |
+| `cambios-proyectos.patch` | — | La diferencia con el `proyectos.html` publicado hoy, por si la copia local cambió |
+
+Pasos:
+
+1. Igual que en la tanda 1: si tu `proyectos.html` local es igual al publicado, copia el nuevo encima; si no,
+   aplica `cambios-proyectos.patch`.
+2. Copia `monitorred-privacidad.html` a la carpeta del sitio. En el pie de página de **todas** las páginas
+   ("Privacidad: CoinID · QuéVeo") agrega `· <a href="/monitorred-privacidad">Monitor de Red</a>`, y súmala
+   al `sitemap.xml`.
+3. Borrador (`netlify deploy`), enlace a Patricio, y a producción (`--prod`) solo cuando él confirme.
+   Revisa que `https://garridoitsolutions.lat/monitorred-privacidad` abra bien: es la dirección que va en
+   Play Console.
+4. **Firma del `.aab` para Google Play:** ver `MonitorRedAndroid/README.md` → "Firma para Google Play".
+   Usa la clave de subida que ya tienes para las otras apps de Play (forma A en la PC, o forma B con los
+   secretos de GitHub). La clave **no** se sube al repositorio, que es público.
+5. Para enviar la app a Play Console, sigue `MonitorRedAndroid/play/FICHA-PLAY.md` con Patricio. El kit
+   (`.aab`, capturas, ícono, gráfico) es el artifact `GooglePlay-MonitorRed-1.0.N` de la pestaña Actions.
+
+---
+
+## Tanda 1 — YA PUBLICADA el 24/10/2026: insignias en la página Proyectos
 
 Preparado el 24/10/2026 en una sesión de Claude en la web. Desde la web **no se puede publicar** este sitio:
 se publica solo desde la PC con la Netlify CLI. Te toca aplicar estos cambios en la carpeta local del sitio
