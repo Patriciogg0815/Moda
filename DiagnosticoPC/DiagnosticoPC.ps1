@@ -3621,7 +3621,7 @@ function New-GlyphRow([int]$Glyph, [string]$Title, [string]$Text) {
     $circle.Width = 42; $circle.Height = 42
     $circle.CornerRadius = New-Object System.Windows.CornerRadius(21)
     $circle.Background = $script:Gui.Window.FindResource('AccentLight')
-    $circle.VerticalAlignment = 'Top'
+    $circle.VerticalAlignment = 'Center'
     $circle.Child = New-IconTextBlock $Glyph 18
     $sp = New-Object System.Windows.Controls.StackPanel
     $sp.Margin = New-Object System.Windows.Thickness(12, 0, 0, 0)
