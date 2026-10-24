@@ -338,6 +338,7 @@ namespace MonitorRed
     public class LocalNetwork
     {
         public string InterfaceName { get; set; }
+        public string InterfaceId { get; set; }
         public string Description { get; set; }
         public string InterfaceType { get; set; }
         public string LocalIp { get; set; }
@@ -459,6 +460,7 @@ namespace MonitorRed
 
                         LocalNetwork n = new LocalNetwork();
                         n.InterfaceName = ni.Name;
+                        n.InterfaceId = ni.Id;
                         n.Description = ni.Description;
                         n.InterfaceType = ni.NetworkInterfaceType.ToString();
                         n.LocalIp = ip;
@@ -1487,6 +1489,234 @@ namespace MonitorRed
         public bool IsSelected { get { return _isSelected; } set { Set(ref _isSelected, value, "IsSelected"); } }
     }
 
+    // ---------------------------------------------------------------- Interceptar tráfico (modo avanzado)
+
+    // Mide el consumo de CADA equipo poniéndose "en medio" con ARP, solo en la red propia del usuario.
+    // Para no cortar internet, reenvía en modo usuario cada paquete a su destino real; al detenerse
+    // restaura la tabla ARP de todos los equipos. Requiere Npcap y permisos de administrador.
+    public class DeviceTarget
+    {
+        public string Ip;
+        public byte[] IpBytes;
+        public uint IpValue;
+        public byte[] Mac;
+        public string MacStr;
+    }
+
+    public class Interceptor
+    {
+        const int DLT_EN10MB = 1;
+
+        [DllImport("wpcap.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        static extern IntPtr pcap_open_live(string device, int snaplen, int promisc, int to_ms, byte[] errbuf);
+        [DllImport("wpcap.dll", CallingConvention = CallingConvention.Cdecl)]
+        static extern int pcap_next_ex(IntPtr p, ref IntPtr header, ref IntPtr data);
+        [DllImport("wpcap.dll", CallingConvention = CallingConvention.Cdecl)]
+        static extern int pcap_sendpacket(IntPtr p, byte[] buf, int size);
+        [DllImport("wpcap.dll", CallingConvention = CallingConvention.Cdecl)]
+        static extern void pcap_close(IntPtr p);
+        [DllImport("wpcap.dll", CallingConvention = CallingConvention.Cdecl)]
+        static extern int pcap_datalink(IntPtr p);
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct pcap_pkthdr { public int tv_sec; public int tv_usec; public uint caplen; public uint len; }
+
+        IntPtr _pcap;
+        byte[] _localMac, _localIp, _gatewayIp, _gatewayMac;
+        uint _localIpValue;
+        readonly List<DeviceTarget> _targets = new List<DeviceTarget>();
+        readonly Dictionary<string, long[]> _counts = new Dictionary<string, long[]>(); // mac -> {bajada, subida}
+        readonly object _lock = new object();
+        volatile bool _stop;
+        Thread _capture, _poison;
+        string _error = "";
+
+        public string Error { get { return _error; } }
+        public int TargetCount { get { return _targets.Count; } }
+
+        public static bool WpcapPresent()
+        {
+            try
+            {
+                string sys = Environment.GetFolderPath(Environment.SpecialFolder.System);
+                return File.Exists(Path.Combine(sys, "Npcap\\wpcap.dll")) || File.Exists(Path.Combine(sys, "wpcap.dll"));
+            }
+            catch { return false; }
+        }
+
+        static byte[] MacBytes(string mac)
+        {
+            string hex = Regex.Replace(mac ?? "", "[^0-9A-Fa-f]", "");
+            if (hex.Length != 12) return null;
+            byte[] b = new byte[6];
+            for (int i = 0; i < 6; i++) b[i] = Convert.ToByte(hex.Substring(i * 2, 2), 16);
+            return b;
+        }
+
+        // devices: IP -> MAC de los equipos reales del escaneo (sin este PC, el router ni MAC compartidas)
+        public bool Start(string deviceName, LocalNetwork net, string gatewayMac, Dictionary<string, string> devices)
+        {
+            try
+            {
+                _localMac = MacBytes(net.LocalMac);
+                _gatewayMac = MacBytes(gatewayMac);
+                if (string.IsNullOrEmpty(net.Gateway) || _localMac == null || _gatewayMac == null)
+                { _error = "Faltan datos del router (no se pudo leer su dirección MAC). Escanea de nuevo."; return false; }
+                _localIp = IPAddress.Parse(net.LocalIp).GetAddressBytes();
+                _gatewayIp = IPAddress.Parse(net.Gateway).GetAddressBytes();
+                _localIpValue = Net.ToUInt(net.LocalIp);
+                foreach (KeyValuePair<string, string> d in devices)
+                {
+                    if (d.Key == net.LocalIp || d.Key == net.Gateway) continue;
+                    byte[] mac = MacBytes(d.Value);
+                    if (mac == null) continue;
+                    DeviceTarget t = new DeviceTarget();
+                    t.Ip = d.Key;
+                    t.IpBytes = IPAddress.Parse(d.Key).GetAddressBytes();
+                    t.IpValue = Net.ToUInt(d.Key);
+                    t.Mac = mac;
+                    t.MacStr = Net.FormatMac(d.Value);
+                    _targets.Add(t);
+                }
+                if (_targets.Count == 0) { _error = "No hay equipos con MAC conocida para medir todavía."; return false; }
+
+                byte[] errbuf = new byte[256];
+                _pcap = pcap_open_live(deviceName, 65536, 1, 100, errbuf);
+                if (_pcap == IntPtr.Zero) { _error = "No se pudo abrir la red con Npcap: " + Encoding.ASCII.GetString(errbuf).TrimEnd('\0'); return false; }
+                if (pcap_datalink(_pcap) != DLT_EN10MB) { pcap_close(_pcap); _pcap = IntPtr.Zero; _error = "Esta red no es compatible con el modo avanzado."; return false; }
+
+                _stop = false;
+                _capture = new Thread(CaptureLoop); _capture.IsBackground = true; _capture.Start();
+                _poison = new Thread(PoisonLoop); _poison.IsBackground = true; _poison.Start();
+                return true;
+            }
+            catch (DllNotFoundException) { _error = "Falta Npcap (no se encontró wpcap.dll)."; return false; }
+            catch (Exception ex) { _error = ex.Message; return false; }
+        }
+
+        public void Stop()
+        {
+            _stop = true;
+            try { if (_poison != null) _poison.Join(2000); } catch { }
+            try { if (_capture != null) _capture.Join(2000); } catch { }
+            try { Restore(); } catch { }
+            try { if (_pcap != IntPtr.Zero) pcap_close(_pcap); } catch { }
+            _pcap = IntPtr.Zero;
+        }
+
+        public Dictionary<string, long[]> Snapshot()
+        {
+            lock (_lock)
+            {
+                Dictionary<string, long[]> copy = new Dictionary<string, long[]>();
+                foreach (KeyValuePair<string, long[]> e in _counts) copy[e.Key] = new long[] { e.Value[0], e.Value[1] };
+                return copy;
+            }
+        }
+
+        void Add(string mac, long downBytes, long upBytes)
+        {
+            lock (_lock)
+            {
+                long[] c;
+                if (!_counts.TryGetValue(mac, out c)) { c = new long[2]; _counts[mac] = c; }
+                c[0] += downBytes; c[1] += upBytes;
+            }
+        }
+
+        void CaptureLoop()
+        {
+            IntPtr header = IntPtr.Zero, data = IntPtr.Zero;
+            while (!_stop)
+            {
+                int res;
+                try { res = pcap_next_ex(_pcap, ref header, ref data); } catch { break; }
+                if (res == 0) continue;   // se agotó el tiempo de espera, sin paquete
+                if (res < 0) break;       // error de captura
+                if (data == IntPtr.Zero) continue;
+                pcap_pkthdr h = (pcap_pkthdr)Marshal.PtrToStructure(header, typeof(pcap_pkthdr));
+                int len = (int)h.caplen;
+                if (len < 34 || len > 65536) continue;   // Ethernet(14) + IPv4(20) mínimo
+                byte[] pkt = new byte[len];
+                Marshal.Copy(data, pkt, 0, len);
+                try { Handle(pkt, len); } catch { }
+            }
+        }
+
+        void Handle(byte[] pkt, int len)
+        {
+            // Solo nos interesa el IPv4 que nos llega por el envenenamiento ARP (destino = nuestra MAC)
+            if (pkt[12] != 0x08 || pkt[13] != 0x00) return;
+            for (int i = 0; i < 6; i++) if (pkt[i] != _localMac[i]) return;
+            uint dstIp = (uint)((pkt[30] << 24) | (pkt[31] << 16) | (pkt[32] << 8) | pkt[33]);
+            if (dstIp == _localIpValue) return;   // tráfico para este PC: lo mide el consumo de "este equipo"
+            uint srcIp = (uint)((pkt[26] << 24) | (pkt[27] << 16) | (pkt[28] << 8) | pkt[29]);
+
+            DeviceTarget dst = FindByIp(dstIp);
+            DeviceTarget src = FindByIp(srcIp);
+            byte[] nextHop;
+            if (dst != null) { nextHop = dst.Mac; Add(dst.MacStr, len, 0); }       // baja hacia el equipo destino
+            else if (src != null) { nextHop = _gatewayMac; Add(src.MacStr, 0, len); } // sube del equipo origen a internet
+            else return;
+
+            // Reenviar: MAC destino = salto real, MAC origen = nosotros, y reinyectar para no cortar la red
+            for (int i = 0; i < 6; i++) { pkt[i] = nextHop[i]; pkt[6 + i] = _localMac[i]; }
+            try { pcap_sendpacket(_pcap, pkt, len); } catch { }
+        }
+
+        DeviceTarget FindByIp(uint ip)
+        {
+            for (int i = 0; i < _targets.Count; i++) if (_targets[i].IpValue == ip) return _targets[i];
+            return null;
+        }
+
+        void PoisonLoop()
+        {
+            while (!_stop)
+            {
+                foreach (DeviceTarget t in _targets)
+                {
+                    Send(ArpReply(t.Mac, _localMac, _gatewayIp, t.Mac, t.IpBytes));    // al equipo: "el router está en mi MAC"
+                    Send(ArpReply(_gatewayMac, _localMac, t.IpBytes, _gatewayMac, _gatewayIp)); // al router: "el equipo está en mi MAC"
+                    if (_stop) return;
+                }
+                for (int i = 0; i < 20 && !_stop; i++) Thread.Sleep(100);   // ~2 s
+            }
+        }
+
+        void Restore()
+        {
+            // Avisa la verdad varias veces para que todos corrijan su tabla ARP al salir
+            for (int round = 0; round < 5; round++)
+            {
+                foreach (DeviceTarget t in _targets)
+                {
+                    Send(ArpReply(t.Mac, _gatewayMac, _gatewayIp, t.Mac, t.IpBytes));
+                    Send(ArpReply(_gatewayMac, t.Mac, t.IpBytes, _gatewayMac, _gatewayIp));
+                }
+                Thread.Sleep(120);
+            }
+        }
+
+        void Send(byte[] frame) { try { if (_pcap != IntPtr.Zero) pcap_sendpacket(_pcap, frame, frame.Length); } catch { } }
+
+        // Trama Ethernet con una respuesta ARP (op=2): "senderIp está en senderMac", dirigida a destMac
+        byte[] ArpReply(byte[] destMac, byte[] senderMac, byte[] senderIp, byte[] targetMac, byte[] targetIp)
+        {
+            byte[] f = new byte[42];
+            for (int i = 0; i < 6; i++) { f[i] = destMac[i]; f[6 + i] = senderMac[i]; }
+            f[12] = 0x08; f[13] = 0x06;
+            f[14] = 0x00; f[15] = 0x01;
+            f[16] = 0x08; f[17] = 0x00;
+            f[18] = 6; f[19] = 4; f[20] = 0x00; f[21] = 0x02;
+            for (int i = 0; i < 6; i++) f[22 + i] = senderMac[i];
+            for (int i = 0; i < 4; i++) f[28 + i] = senderIp[i];
+            for (int i = 0; i < 6; i++) f[32 + i] = targetMac[i];
+            for (int i = 0; i < 4; i++) f[38 + i] = targetIp[i];
+            return f;
+        }
+    }
+
     public static class NativeMethods
     {
         [DllImport("user32.dll")]
@@ -1610,9 +1840,9 @@ $script:MeasurementModes = @(
         Id = 'Intercept'; Number = 3; Priority = 3; Name = 'Interceptar el tráfico (avanzado)'; Scope = 'Por equipo'; Glyph = 0xE7BA
         Description = 'Esta PC se pone "en medio" entre los equipos y el router (ARP) para contar el tráfico de cada uno. Funciona con cualquier router.'
         Warning = 'Modo avanzado: puede hacer más lenta la red, algunos antivirus y routers lo bloquean, y solo debes usarlo en tu propia red. Necesita permisos de administrador y el controlador Npcap.'
-        RequiresConsent = $true; Implemented = $false
+        RequiresConsent = $true; Implemented = $true
         Test = { param($Ctx) Test-InterceptMode $Ctx }
-        Read = { param($Ctx) @() }
+        Read = { param($Ctx) @() }   # La captura la maneja la ventana (Start/Stop-InterceptCapture), como UPnP.
     }
     @{
         Id = 'Agent'; Number = 4; Priority = 2; Name = 'Agente en cada equipo'; Scope = 'Por equipo'; Glyph = 0xE8EA
@@ -2847,27 +3077,104 @@ function Update-MeasurementUi {
 
 #region Medición en vivo del consumo
 
-# Arranca o detiene las fuentes de medición según el modo activo. El consumo de ESTE equipo se mide
-# siempre (es gratis); las demás fuentes dependen del modo.
+# Arranca o detiene las fuentes de medición. El consumo de ESTE equipo se mide siempre (es gratis).
+# El total de la casa (UPnP) se muestra en la cabecera como complemento siempre que el router lo
+# informe, sin importar el modo por equipo. La medición por equipo depende del modo activo.
 function Sync-MeasureSources {
     $g = $script:Gui
     $state = $g.MeasureState
-    $upnpActive = [bool]($state -and $state.Active -and $state.Active.Mode.Id -eq 'Upnp' -and $g.Session -and $g.Session.IsCompleted)
-    if ($upnpActive) {
+    $completed = [bool]($g.Session -and $g.Session.IsCompleted)
+
+    $upnpAvail = $false
+    if ($completed -and $g.Session) {
+        $upnpAvail = [bool](@($g.Session.InternetGateways) | Where-Object { $_.WanControlUrl } | Select-Object -First 1)
+    }
+    if ($upnpAvail) {
         if (-not $g.UpnpPS) { Start-UpnpPoll }
     } else {
         Stop-UpnpPoll
         $g.TotalRatePanel.Visibility = 'Collapsed'
+    }
+
+    $interceptActive = [bool]($state -and $state.Active -and $state.Active.Mode.Id -eq 'Intercept' -and $completed)
+    if ($interceptActive) {
+        if (-not $g.Interceptor) { Start-InterceptCapture }
+    } else {
+        Stop-InterceptCapture
     }
 }
 
 function Reset-Measurement {
     $g = $script:Gui
     Stop-UpnpPoll
+    Stop-InterceptCapture
+    $g.InterceptConfirmed = $false
     $g.PrevSelf = $null
     foreach ($d in @($g.Devices)) { $d.Download = '—'; $d.Upload = '—' }
     $g.TotalRatePanel.Visibility = 'Collapsed'
     $g.TxtTotalDown.Text = '—'; $g.TxtTotalUp.Text = '—'
+}
+
+# Modo avanzado: pone esta PC "en medio" (ARP) para contar el tráfico de cada equipo, solo en la red
+# propia. Pide confirmación explícita una vez, mide en segundo plano y restaura la red al detenerse.
+function Start-InterceptCapture {
+    $g = $script:Gui
+    $net = Get-SelectedNetwork
+    if (-not $net) { return }
+
+    if (-not $g.InterceptConfirmed) {
+        $msg = "El modo avanzado mide el consumo de cada equipo poniendo esta PC en medio del trafico de tu red (tecnica ARP)." + [Environment]::NewLine + [Environment]::NewLine +
+               "- Usalo solo en TU PROPIA red." + [Environment]::NewLine +
+               "- Puede hacer la red un poco mas lenta mientras esta activo." + [Environment]::NewLine +
+               "- Algunos antivirus o routers pueden bloquearlo." + [Environment]::NewLine +
+               "- Al cerrar la app o cambiar de modo, la red se restaura automaticamente." + [Environment]::NewLine + [Environment]::NewLine +
+               "Deseas continuar?"
+        $r = [System.Windows.MessageBox]::Show($g.Window, $msg, 'Interceptar el trafico (avanzado)',
+            [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Warning)
+        if ($r -ne [System.Windows.MessageBoxResult]::Yes) {
+            # El usuario no confirmo: vuelve a Automatico para no quedar en un modo que no mide
+            $script:Settings.InterceptConsent = $false
+            $g.ChkIntercept.IsChecked = $false
+            $script:Settings.MeasurementMode = 'Auto'
+            Save-Settings
+            Update-MeasurementUi
+            return
+        }
+        $g.InterceptConfirmed = $true
+    }
+
+    # Equipos reales a medir: IP -> MAC, sin este PC, sin el router y sin fantasmas de proxy ARP
+    $devices = New-Object 'System.Collections.Generic.Dictionary[string,string]'
+    $gatewayMac = ''
+    foreach ($d in @($g.Devices)) {
+        if (-not $d.IsOnline -or -not $d.Mac) { continue }
+        if ($d.IsGateway) { $gatewayMac = $d.Mac; continue }
+        if ($d.IsSelf -or $d.SharedMac) { continue }
+        if (-not $devices.ContainsKey($d.Ip)) { $devices[$d.Ip] = $d.Mac }
+    }
+    if (-not $gatewayMac) { $g.TxtInterceptStatus.Text = 'No se pudo leer la direccion MAC del router. Vuelve a escanear.'; return }
+    if ($devices.Count -eq 0) { $g.TxtInterceptStatus.Text = 'Todavia no hay otros equipos con MAC conocida para medir.'; return }
+
+    $deviceName = '\Device\NPF_' + $net.InterfaceId
+    $interceptor = New-Object MonitorRed.Interceptor
+    if ($interceptor.Start($deviceName, $net, $gatewayMac, $devices)) {
+        $g.Interceptor = $interceptor
+        $g.PrevDev = @{}
+        $g.TxtInterceptStatus.Text = "Midiendo el trafico de $($interceptor.TargetCount) equipos. La red se restaura al cerrar o cambiar de modo."
+    } else {
+        $g.TxtInterceptStatus.Text = "No se pudo iniciar el modo avanzado: $($interceptor.Error)"
+        $g.Interceptor = $null
+    }
+}
+
+# Detiene la captura y restaura la tabla ARP de todos los equipos (dentro de Stop()).
+function Stop-InterceptCapture {
+    $g = $script:Gui
+    if (-not $g.Interceptor) { return }
+    try { $g.Interceptor.Stop() } catch { }
+    $g.Interceptor = $null
+    $g.PrevDev = $null
+    foreach ($d in @($g.Devices)) { if (-not $d.IsSelf) { $d.Download = '—'; $d.Upload = '—' } }
 }
 
 # Consumo real de la tarjeta de red de este equipo, sin depender del router (lectura instantánea)
@@ -2944,8 +3251,9 @@ function Update-Measurement {
     Clear-FinishedPolls
     if (-not $g.Networks -or $g.Networks.Count -eq 0) { return }
     Update-SelfMeasurement
-    $state = $g.MeasureState
-    if ($state -and $state.Active -and $state.Active.Mode.Id -eq 'Upnp' -and $g.UpnpSync) {
+
+    # Total de la casa (UPnP) en la cabecera, como complemento, mientras el hilo esté activo
+    if ($g.UpnpSync) {
         $s = $g.UpnpSync
         if ($s.Time -ne 0 -and ($s.Down -ge 0 -or $s.Up -ge 0)) {
             if ($g.PrevTotal -and $s.Time -ne $g.PrevTotal.Time) {
@@ -2957,6 +3265,26 @@ function Update-Measurement {
             if (-not $g.PrevTotal -or $s.Time -ne $g.PrevTotal.Time) {
                 $g.PrevTotal = @{ Down = $s.Down; Up = $s.Up; Time = $s.Time }
             }
+        }
+    }
+
+    # Consumo por equipo con el modo Interceptar: lee los bytes acumulados y calcula la velocidad
+    if ($g.Interceptor) {
+        $snap = $g.Interceptor.Snapshot()
+        $t = [double][Environment]::TickCount
+        if (-not $g.PrevDev) { $g.PrevDev = @{} }
+        foreach ($d in @($g.Devices)) {
+            if ($d.IsSelf -or $d.IsGateway -or -not $d.Mac) { continue }
+            $mac = [MonitorRed.Net]::FormatMac($d.Mac)
+            if (-not $snap.ContainsKey($mac)) { continue }
+            $down = [double]$snap[$mac][0]; $up = [double]$snap[$mac][1]
+            $prev = $g.PrevDev[$mac]
+            if ($prev) {
+                $secs = ($t - $prev.Time) / 1000.0
+                $d.Download = Format-Rate (Get-RateBps $prev.Down $down $secs)
+                $d.Upload = Format-Rate (Get-RateBps $prev.Up $up $secs)
+            }
+            $g.PrevDev[$mac] = @{ Down = $down; Up = $up; Time = $t }
         }
     }
 }
@@ -2989,9 +3317,11 @@ function Update-SettingsPage {
             if ($_.RequiresConsent) { "$($_.Name) (solo si lo permitiste)" } else { $_.Name } })
         $g.TxtAutoDesc.Text = "Usa el mejor modo disponible, en este orden: $($order -join ', ')."
         if ($intercept) { $g.TxtInterceptWarning.Text = $intercept.Warning }
-        $admin = if (Test-IsAdmin) { 'sí' } else { 'no' }
-        $npcap = if (Test-NpcapInstalled) { 'instalado' } else { 'no instalado' }
-        $g.TxtInterceptStatus.Text = "App abierta como administrador: $admin  ·  Npcap: $npcap"
+        if (-not $g.Interceptor) {
+            $admin = if (Test-IsAdmin) { 'sí' } else { 'no' }
+            $npcap = if (Test-NpcapInstalled) { 'instalado' } else { 'no instalado' }
+            $g.TxtInterceptStatus.Text = "App abierta como administrador: $admin  ·  Npcap: $npcap"
+        }
         $g.TxtAbout.Text = "$script:AppName $script:AppVersion`nFabricantes conocidos: $([MonitorRed.OuiDatabase]::Count) bloques de direcciones MAC (registro público de la IEEE).`nTus nombres y ajustes se guardan en: $script:DataDir"
         Update-MeasurementUi
     } finally {
@@ -3156,6 +3486,7 @@ function New-MainWindow {
         $g.Timer.Stop()
         $g.MeasureTimer.Stop()
         Stop-UpnpPoll
+        Stop-InterceptCapture
         Save-KnownDevices
     })
 
