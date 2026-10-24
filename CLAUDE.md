@@ -61,13 +61,14 @@ consume cada uno. Mismo estilo que RespaldoDrivers: PowerShell + WPF, con el esc
 - **Publicidad y donaciones (hecho):**
   - Banner Adsterra 728x90 abajo de la ventana, en un WebView2 que carga
     `https://convertir-ec.netlify.app/app-banner.html`. El archivo está en `MonitorRed/web/app-banner.html` y
-    **el usuario debe subirlo a Netlify**: el código de convertir-ec no está en GitHub.
+    también está en el repo `convertir-ec` (PR #1); se publica al unir ese PR y conectar el repo en Netlify.
   - Las DLL de WebView2 las prepara `MonitorRed/Preparar-WebView2.ps1` (con huella SHA-256 fijada) y
     `Crear-EXE.ps1` las incrusta.
   - `MONITORRED_PRUEBA=1` evita anuncios reales en CI.
   - Botón "Apoyar a la app" (Ko-fi).
   - Política de privacidad y ficha actualizadas.
-- Pendiente: subir `app-banner.html` a Netlify, llevar el PR #4 a `main` y crear los conectores de routers.
+- Pendiente: publicar `app-banner.html` (PR #1 de convertir-ec), llevar el PR #4 a `main` y crear los
+  conectores de routers.
   El paquete MSIX del Monitor de Red todavía no se genera en `monitor-red.yml`.
 
 ### 3. QuéVeo (Android) — **no está en `main`**
@@ -83,12 +84,18 @@ Recomienda películas y series y muestra en qué plataforma verlas (TMDB + JustW
 - AdMob (`www/js/ads.js`): banner abajo + intersticial al tocar, como máximo uno cada 45 s (no aparece en
   Configuración). App `~5987566028`, banner `/2056059870`, intersticial `/2048321010`.
 
-### 4. Convertir.ec (web + app) — fuera de GitHub
+### 4. Convertir.ec (web + app) — repo privado `Patriciogg0815/convertir-ec`
 
-Sitio de herramientas: https://convertir-ec.netlify.app/ (Netlify). Su código **no está en ningún repositorio**:
-se subió directo a Netlify. Para trabajar en él, el plan es crear el repo `convertir-ec`, subir los
-archivos (Netlify → Deploys → Download) y conectarlo con Netlify (Link repository).
+Sitio de herramientas PDF/imagen: https://convertir-ec.netlify.app/ (proyecto de Netlify `convertir-ec`).
+Antes se publicaba con la Netlify CLI desde `C:\convertir` en la PC del usuario. El 24/10/2026 el usuario
+subió los archivos a GitHub: son iguales a los publicados.
 
+- `netlify.toml` traía `publish = "C:\\convertir"`, que hacía fallar los deploys en Netlify. Se corrigió a
+  `publish = "."` y se agregó `app-banner.html` en el PR #1 de convertir-ec.
+- Pendiente: unir ese PR y conectar el repo en Netlify (Project configuration → **Developer settings** →
+  Repository → **Link repository**). La configuración de compilación sale de `netlify.toml`.
+- `setup/convertir-api.sh` instala el backend Office↔PDF (Docker, `convertir-api.duckdns.org:8443`). Hoy
+  también se publica en la web (no tiene claves; el token de DuckDNS se pide al ejecutarlo).
 - Web: **Adsterra**, con dominios `highrevenueformat.com` y `profitableratecpmnetwork.com`, en `/js/common.js`:
   - Banners en iframe: arriba de 728x90 (computadora) / 320x50 (móvil), abajo de 300x250.
   - Social Bar (`pl31407294.profitableratecpmnetwork.com`).
