@@ -35,7 +35,7 @@ Respalda los drivers del equipo por categoría y los reinstala después de forma
 - Tiene el botón "Apoyar a la app" (Ko-fi). Se quitó el `.bat`: el `.exe` es la única forma de usarla.
 - Historia: rama `claude/ecstatic-sagan-19fwe0`, unida a `main` en el PR #1.
 
-### 2. Monitor de Red (Windows) — rama `claude/busy-turing-ngdllw` (PR #4 hacia `main`)
+### 2. Monitor de Red (Windows) — en `main` · en la Microsoft Store como "Monitor de Red de Casa"
 
 Muestra los equipos de la red de la casa (nombre, IP, MAC, fabricante, tipo, en línea / nuevo) y cuánto
 consume cada uno. Mismo estilo que RespaldoDrivers: PowerShell + WPF, con el escáner en C# dentro del `.ps1`.
@@ -73,6 +73,9 @@ consume cada uno. Mismo estilo que RespaldoDrivers: PowerShell + WPF, con el esc
   Nombre reservado en Partner Center: **Monitor de Red de Casa**, identidad
   `GarridoitSolutions.MonitordeReddeCasa` (PFN `GarridoitSolutions.MonitordeReddeCasa_qketwn0rzx7t0`).
   Ya completa en `MonitorRed/store/identidad.json`: el `.msix` del kit sirve para enviar.
+  **Enviado a la Store el 24/10/2026** con el kit 1.0.29 (en certificación, 1 a 3 días hábiles). Si la
+  rechazan, el usuario trae el informe de Partner Center para corregirlo. Para actualizar: nuevo envío con
+  el `.msix` más reciente del artifact `MicrosoftStore-MonitorRed-1.0.N`.
 - Pendiente: conectores de routers (modo 1).
 
 ### 3. QuéVeo (Android) — **no está en `main`**
