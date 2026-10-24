@@ -291,7 +291,8 @@ function Write-JsonFile([string]$Path, $Data) {
 }
 
 function Get-DefaultSettings {
-    @{ MeasurementMode = 'Auto'; InterceptConsent = $false; RouterBrand = ''; RouterUser = 'admin'; RouterPassword = ''; ShowOffline = $false }
+    @{ MeasurementMode = 'Auto'; InterceptConsent = $false; RouterBrand = ''; RouterUser = 'admin'; RouterPassword = ''; ShowOffline = $false
+       AlertNew = $true; AlertOffline = $true; AlertNamedOnly = $false; WatchMinutes = 2 }
 }
 
 function Import-AppData {
@@ -326,6 +327,80 @@ function Format-LastSeen([string]$Iso) {
     if ($days -eq 1) { return 'ayer ' + $d.ToString('HH:mm') }
     if ($days -lt 30) { return "hace $days días" }
     $d.ToString('dd/MM/yyyy')
+}
+
+#endregion
+
+#region Alertas (equipo nuevo, equipo desconectado)
+
+# Minutos entre revisiones automáticas de la red, para la lista de Ajustes
+$script:WatchMinuteChoices = @(1, 2, 5, 10, 15)
+
+function Test-AlertsEnabled($Settings) { [bool]($Settings.AlertNew -or $Settings.AlertOffline) }
+
+function Get-WatchMinutes($Settings) {
+    $m = 0
+    if (-not [int]::TryParse([string]$Settings.WatchMinutes, [ref]$m) -or $m -lt 1) { $m = 2 }
+    [Math]::Min($m, 60)
+}
+
+# Decide qué avisar al terminar una revisión de la red.
+#   NewDevices: equipos que la app nunca había visto (clave → datos para el aviso)
+#   Missing:    equipos que estaban en línea y no aparecieron en esta revisión
+#   Seen:       claves de los equipos que sí aparecieron
+#   Pending:    desconexiones por confirmar (se modifica). Un equipo se da por desconectado recién cuando
+#               falta en 2 revisiones seguidas, para no avisar por un corte de un momento.
+#   NetworkOk:  $false si la revisión no es confiable (error, otra red, el router no respondió): no se
+#               avisa ninguna desconexión, porque parecería que se apagaron todos los equipos.
+function Get-NetworkAlerts {
+    param($Settings, [hashtable]$NewDevices, [hashtable]$Missing, [hashtable]$Seen, [hashtable]$Pending, [bool]$NetworkOk)
+    $offline = @()
+    if ($NetworkOk) {
+        foreach ($key in @($Pending.Keys)) {
+            $info = $Pending[$key]
+            $Pending.Remove($key)
+            if ($Seen[$key]) { continue }
+            if ($Settings.AlertOffline -and (-not $Settings.AlertNamedOnly -or $info.HasCustomName)) { $offline += $info }
+        }
+        foreach ($key in @($Missing.Keys)) { $Pending[$key] = $Missing[$key] }
+    } else {
+        $Pending.Clear()
+    }
+    $new = @()
+    if ($Settings.AlertNew) { $new = @($NewDevices.Values | Sort-Object { $_.IpValue }) }
+    @{ New = @($new); Offline = @($offline | Sort-Object { $_.Name }) }
+}
+
+function Limit-Text([string]$Text, [int]$Max) {
+    if ($Text.Length -le $Max) { return $Text }
+    $Text.Substring(0, $Max - 1).TrimEnd() + '…'
+}
+
+# Título y texto de la notificación (Windows corta el título en 63 letras y el texto en 255)
+function Format-AlertMessage($Alerts) {
+    if (-not $Alerts) { return $null }
+    $new = @($Alerts.New | Where-Object { $_ }); $off = @($Alerts.Offline | Where-Object { $_ })
+    if ($new.Count -eq 0 -and $off.Count -eq 0) { return $null }
+    $names = { param($list) (@($list) | ForEach-Object { "«$($_.Name)»" }) -join ', ' }
+    $first = if ($new.Count -gt 0) { $new[0] } else { $off[0] }
+    if ($new.Count -gt 0 -and $off.Count -gt 0) {
+        $title = 'Cambios en tu red'
+        $text = "Se conectó: $(& $names $new). Se desconectó: $(& $names $off)."
+    } elseif ($new.Count -eq 1) {
+        $title = 'Se conectó un equipo nuevo'
+        $text = "«$($first.Name)» · IP $($first.Ip)$(if ($first.Vendor) { " · $($first.Vendor)" })"
+    } elseif ($new.Count -gt 1) {
+        $title = "Se conectaron $($new.Count) equipos nuevos"
+        $text = & $names $new
+    } elseif ($off.Count -eq 1) {
+        $title = "Se desconectó «$($first.Name)»"
+        $seen = Format-LastSeen $first.LastSeen
+        $text = "Se apagó o salió de la red. $(if ($seen) { "Visto por última vez: $seen · " })IP $($first.Ip)"
+    } else {
+        $title = "Se desconectaron $($off.Count) equipos"
+        $text = & $names $off
+    }
+    @{ Title = (Limit-Text $title 63); Text = (Limit-Text $text 250); Key = $first.Key; IsOffline = ($new.Count -eq 0) }
 }
 
 #endregion
@@ -2580,6 +2655,24 @@ $script:Xaml = @'
     <!-- ===== Ajustes ===== -->
     <ScrollViewer x:Name="PageSettings" Grid.Row="2" Margin="28,0,12,24" Padding="0,0,16,0" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
       <StackPanel MaxWidth="980" HorizontalAlignment="Left">
+        <TextBlock Text="Alertas" FontSize="18" FontWeight="SemiBold" Margin="2,0,0,4"/>
+        <TextBlock TextWrapping="Wrap" Foreground="{StaticResource TextSecondary}" Margin="2,0,0,12"
+                   Text="Mientras la app está abierta (aunque esté minimizada), revisa la red cada pocos minutos y te avisa con una notificación de Windows. Al hacer clic en la notificación se abre el equipo."/>
+        <Border Style="{StaticResource Card}" Margin="0,0,0,22">
+          <StackPanel>
+            <CheckBox x:Name="ChkAlertNew" FontSize="14" Content="Avisarme cuando se conecte un equipo nuevo (uno que la app nunca había visto)"/>
+            <CheckBox x:Name="ChkAlertOffline" FontSize="14" Margin="0,12,0,0" Content="Avisarme cuando un equipo se desconecte (se apague o salga de la red)"/>
+            <CheckBox x:Name="ChkAlertNamedOnly" Margin="28,8,0,0" Content="Solo de los equipos a los que les puse nombre"/>
+            <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+              <TextBlock Text="Revisar la red cada" VerticalAlignment="Center" FontSize="14"/>
+              <ComboBox x:Name="CbWatchMinutes" Width="130" Margin="10,0,0,0"/>
+            </StackPanel>
+            <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,12,0,0"
+                       Text="Un equipo se da por desconectado cuando falta en 2 revisiones seguidas, para no avisar por un corte de un momento. Algunos teléfonos se desconectan del Wi-Fi solos cuando tienen la pantalla apagada."/>
+            <Button x:Name="BtnTestAlert" Style="{StaticResource SubtleButton}" Content="Probar la notificación" HorizontalAlignment="Left" Margin="0,12,0,0"/>
+          </StackPanel>
+        </Border>
+
         <TextBlock Text="Modo de medición del consumo" FontSize="18" FontWeight="SemiBold" Margin="2,0,0,4"/>
         <TextBlock TextWrapping="Wrap" Foreground="{StaticResource TextSecondary}" Margin="2,0,0,12"
                    Text="Cada router es distinto, por eso la app tiene varias formas de medir cuántos datos usa cada equipo. Al abrirse revisa cuáles funcionan en tu red."/>
@@ -2679,7 +2772,7 @@ $script:Xaml = @'
 '@
 
 function Initialize-GuiTypes {
-    Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Xaml, System.Windows.Forms
+    Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Xaml, System.Windows.Forms, System.Drawing
     Initialize-ScannerTypes
     $script:UiCallback = [System.Windows.Threading.DispatcherOperationCallback]{ param($frame) $frame.Continue = $false; $null }
 }
@@ -2825,6 +2918,8 @@ function Update-DeviceFromRecord($Record) {
     $isNew = -not $known
     $now = (Get-Date).ToUniversalTime().ToString('o')
     if ($isNew) { $known = @{ FirstSeen = $now }; $script:Known[$key] = $known }
+    # Para la alerta de equipo nuevo (los que solo se conocen por IP no se recuerdan, siempre serían "nuevos")
+    if ($isNew -and $g.HadHistory -and -not $Record.IsSelf -and -not $Record.IsGateway -and -not ($key -like 'IP:*')) { $g.NewKeys[$key] = $true }
 
     $device.Record = $Record
     $device.Ip = $Record.Ip
@@ -2912,8 +3007,10 @@ function Start-NetworkScan {
     }
     $g.TxtSubtitle.Text = "Red $($net.Summary)  ·  Este equipo: $($net.LocalIp)  ·  Router: $(if ($net.Gateway) { $net.Gateway } else { 'no detectado' })"
     if ($net.IsLimited) { $g.TxtSubtitle.Text += '  ·  Red grande: se escanea solo la parte de este equipo (/24)' }
+    Stop-WatchScan
     $g.SeenKeys = @{}
     $g.ByIp = @{}
+    $g.NewKeys = @{}
     Reset-Measurement
     $g.ScanStarted = Get-Date
     $session = New-Object MonitorRed.ScanSession($net)
@@ -2948,15 +3045,7 @@ function Complete-NetworkScan {
     $s = $g.Session
     $g.Timer.Stop()
     foreach ($r in $s.TakeChanges()) { Update-DeviceFromRecord $r }
-    foreach ($d in @($g.Devices)) {
-        if (-not $g.SeenKeys[$d.Key]) {
-            $d.IsOnline = $false
-            if ($d.Key -like 'IP:*') { [void]$g.Devices.Remove($d); $g.ByKey.Remove($d.Key); continue }
-            $d.Badge = ''
-            Update-DeviceStatus $d
-        }
-    }
-    Save-KnownDevices
+    $alerts = Complete-ScanRound (-not $s.Error)
     $secs = [int]((Get-Date) - $g.ScanStarted).TotalSeconds
     $n = $g.SeenKeys.Count
     if ($s.Error) {
@@ -2971,6 +3060,44 @@ function Complete-NetworkScan {
     $g.CbNetwork.IsEnabled = $true
     Update-DeviceView
     Update-MeasurementUi
+    Show-NetworkAlert $alerts
+}
+
+# Al terminar cada revisión (a mano o automática): marca los equipos que no aparecieron como
+# desconectados, guarda lo visto y devuelve qué avisar
+function Complete-ScanRound([bool]$Ok) {
+    $g = $script:Gui
+    $missing = @{}
+    $routerSeen = $false
+    foreach ($d in @($g.Devices)) {
+        if ($g.SeenKeys[$d.Key]) { if ($d.IsGateway) { $routerSeen = $true }; continue }
+        if ($d.IsOnline -and -not $d.IsSelf -and -not $d.IsGateway) { $missing[$d.Key] = Get-AlertInfo $d }
+        $d.IsOnline = $false
+        if ($d.Key -like 'IP:*') { [void]$g.Devices.Remove($d); $g.ByKey.Remove($d.Key); continue }
+        $d.Badge = ''
+        Update-DeviceStatus $d
+    }
+    Save-KnownDevices
+
+    # Si cambió la red o el router no respondió, la revisión no sirve para saber quién se desconectó
+    $net = Get-SelectedNetwork
+    $netKey = if ($net) { "$($net.LocalIp)|$($net.Gateway)" } else { '' }
+    $netOk = $Ok -and $netKey -and $netKey -eq $g.RoundNetwork -and ($routerSeen -or -not $net.Gateway)
+    $g.RoundNetwork = $netKey
+
+    $newDevices = @{}
+    foreach ($k in @($g.NewKeys.Keys)) {
+        $d = $g.ByKey[$k]
+        if ($d -and $d.IsOnline) { $newDevices[$k] = Get-AlertInfo $d }
+    }
+    $g.NewKeys = @{}
+    if ($Ok) { $g.HadHistory = $true }
+    Get-NetworkAlerts -Settings $script:Settings -NewDevices $newDevices -Missing $missing -Seen $g.SeenKeys -Pending $g.PendingOffline -NetworkOk $netOk
+}
+
+function Get-AlertInfo($Device) {
+    @{ Key = $Device.Key; Name = $Device.DisplayName; Ip = $Device.Ip; IpValue = $Device.IpValue; Vendor = $Device.Vendor
+       HasCustomName = $Device.HasCustomName; LastSeen = $Device.LastSeen }
 }
 
 # Si la base de fabricantes no venía incluida, se descarga una vez en segundo plano
@@ -2992,6 +3119,160 @@ function Complete-OuiDownload {
         foreach ($d in @($g.Devices)) { if ($d.Record -and $d.IsOnline) { Update-DeviceFromRecord $d.Record } }
         Update-DeviceView
     } catch { } finally { $job.PS.Dispose() }
+}
+
+#endregion
+
+#region Vigilancia de la red y notificaciones
+
+# Revisión automática cada pocos minutos, en un escaneo aparte: no reinicia la medición ni toca la
+# barra de progreso. Si se escanea a mano mientras tanto, la revisión automática se cancela.
+function Start-WatchScan {
+    $g = $script:Gui
+    if (-not (Test-AlertsEnabled $script:Settings)) { return }
+    if (-not ($g.Session -is [MonitorRed.ScanSession]) -or -not $g.Session.IsCompleted) { return }
+    if ($g.WatchSession) { return }
+    $net = Get-SelectedNetwork
+    if (-not $net) { return }
+    $s = New-Object MonitorRed.ScanSession($net)
+    $g.WatchSession = $s
+    $s.Start()
+    $g.WatchPoll.Start()
+}
+
+function Stop-WatchScan {
+    $g = $script:Gui
+    if ($g.WatchPoll) { $g.WatchPoll.Stop() }
+    if ($g.WatchSession) { $g.WatchSession.Cancel(); $g.WatchSession = $null }
+}
+
+function Update-WatchScan {
+    $g = $script:Gui
+    $s = $g.WatchSession
+    if (-not $s) { $g.WatchPoll.Stop(); return }
+    if (-not $s.IsCompleted) { return }
+    $g.WatchPoll.Stop()
+    $g.WatchSession = $null
+    if ($s.IsCancelled) { return }
+    $g.SeenKeys = @{}
+    $g.ByIp = @{}
+    $g.NewKeys = @{}
+    foreach ($r in $s.GetAll()) { Update-DeviceFromRecord $r }
+    $alerts = Complete-ScanRound (-not $s.Error)
+    Update-DeviceView
+    $n = $g.SeenKeys.Count
+    $g.TxtStatus.Text = "Revisión automática de las $((Get-Date).ToString('HH:mm')): $n $(if ($n -eq 1) { 'equipo conectado' } else { 'equipos conectados' }). La próxima, en $(Get-WatchMinutes $script:Settings) min."
+    Show-NetworkAlert $alerts
+}
+
+function Restart-WatchTimer {
+    $g = $script:Gui
+    if (-not $g.WatchTimer) { return }
+    $g.WatchTimer.Stop()
+    $g.WatchTimer.Interval = [TimeSpan]::FromMinutes((Get-WatchMinutes $script:Settings))
+    if (Test-AlertsEnabled $script:Settings) { $g.WatchTimer.Start() } else { Stop-WatchScan }
+    Update-TrayIcon
+}
+
+# Ícono junto al reloj de Windows: hace falta para mostrar las notificaciones
+function Initialize-TrayIcon {
+    $g = $script:Gui
+    try {
+        $tray = New-Object System.Windows.Forms.NotifyIcon
+        $tray.Icon = Get-AppIcon
+        $tray.Add_BalloonTipClicked({ Show-AlertedDevice })
+        $tray.Add_MouseClick({ Restore-MainWindow })
+        $g.Tray = $tray
+        Update-TrayIcon
+    } catch {
+        $g.Tray = $null
+    }
+}
+
+function Get-AppIcon {
+    try {
+        if ($script:ScriptPath -like '*.exe') { return [System.Drawing.Icon]::ExtractAssociatedIcon($script:ScriptPath) }
+        $ico = Join-Path $script:ScriptDir 'icono.ico'
+        if (Test-Path -LiteralPath $ico) { return New-Object System.Drawing.Icon($ico) }
+    } catch { }
+    [System.Drawing.SystemIcons]::Information
+}
+
+function Update-TrayIcon {
+    $g = $script:Gui
+    if (-not $g.Tray) { return }
+    $on = Test-AlertsEnabled $script:Settings
+    $g.Tray.Text = if ($on) { Limit-Text "$script:AppName · revisa la red cada $(Get-WatchMinutes $script:Settings) min" 63 } else { $script:AppName }
+    $g.Tray.Visible = $on
+}
+
+function Remove-TrayIcon {
+    $g = $script:Gui
+    if (-not $g.Tray) { return }
+    try { $g.Tray.Visible = $false; $g.Tray.Dispose() } catch { }
+    $g.Tray = $null
+}
+
+function Show-NetworkAlert($Alerts, [switch]$Force) {
+    $g = $script:Gui
+    $msg = Format-AlertMessage $Alerts
+    if (-not $msg) { return }
+    $g.LastAlert = $msg
+    $g.TxtStatus.Text = "$((Get-Date).ToString('HH:mm'))  ·  $($msg.Title): $($msg.Text)"
+    if (-not $g.Tray) { return }
+    if (-not $g.Tray.Visible) {
+        if (-not $Force) { return }
+        $g.Tray.Visible = $true
+    }
+    $g.Tray.BalloonTipTitle = $msg.Title
+    $g.Tray.BalloonTipText = $msg.Text
+    $g.Tray.BalloonTipIcon = 'Info'
+    $g.Tray.ShowBalloonTip(10000)
+}
+
+function Restore-MainWindow {
+    $w = $script:Gui.Window
+    if ($w.WindowState -eq 'Minimized') { $w.WindowState = 'Normal' }
+    [void]$w.Activate()
+}
+
+# Al hacer clic en la notificación: abre la ventana con ese equipo elegido
+function Show-AlertedDevice {
+    $g = $script:Gui
+    Restore-MainWindow
+    Show-Page 'PageDevices'
+    $d = if ($g.LastAlert) { $g.ByKey[$g.LastAlert.Key] } else { $null }
+    if (-not $d) { return }
+    if (-not $d.IsOnline -and -not $g.ChkOffline.IsChecked) { $g.ChkOffline.IsChecked = $true }
+    $g.DeviceGrid.SelectedItem = $d
+    $g.DeviceGrid.ScrollIntoView($d)
+}
+
+function Send-TestAlert {
+    $sample = @{ Key = ''; Name = 'Equipo de ejemplo'; Ip = '192.168.1.99'; IpValue = 0; Vendor = 'Samsung'; HasCustomName = $false; LastSeen = '' }
+    Show-NetworkAlert @{ New = @($sample); Offline = @() } -Force
+    Update-TrayIcon
+}
+
+function Save-AlertSettings {
+    $g = $script:Gui
+    if ($g.LoadingSettings) { return }
+    $s = $script:Settings
+    $s.AlertNew = [bool]$g.ChkAlertNew.IsChecked
+    $s.AlertOffline = [bool]$g.ChkAlertOffline.IsChecked
+    $s.AlertNamedOnly = [bool]$g.ChkAlertNamedOnly.IsChecked
+    if ($g.CbWatchMinutes.SelectedItem) { $s.WatchMinutes = [int]$g.CbWatchMinutes.SelectedItem.Tag }
+    Save-Settings
+    Update-AlertControls
+    Restart-WatchTimer
+}
+
+function Update-AlertControls {
+    $g = $script:Gui
+    $on = Test-AlertsEnabled $script:Settings
+    $g.ChkAlertNamedOnly.IsEnabled = [bool]$script:Settings.AlertOffline
+    $g.CbWatchMinutes.IsEnabled = $on
+    $g.BtnTestAlert.IsEnabled = [bool]$g.Tray
 }
 
 #endregion
@@ -3351,6 +3632,12 @@ function Update-SettingsPage {
         $gw = (Get-SelectedNetwork)
         $g.TxtRouterHint.Text = "Router detectado: $(if ($gw -and $gw.Gateway) { $gw.Gateway } else { 'no detectado' })$(if ($vendor) { " ($vendor)" })." +
             ' Son los mismos datos con los que entras a la página de configuración del router (suelen venir en una etiqueta debajo del equipo).'
+        $g.ChkAlertNew.IsChecked = [bool]$s.AlertNew
+        $g.ChkAlertOffline.IsChecked = [bool]$s.AlertOffline
+        $g.ChkAlertNamedOnly.IsChecked = [bool]$s.AlertNamedOnly
+        $minutes = Get-WatchMinutes $s
+        $g.CbWatchMinutes.SelectedIndex = [Math]::Max(0, [array]::IndexOf($script:WatchMinuteChoices, $minutes))
+        Update-AlertControls
         $g.ChkIntercept.IsChecked = [bool]$s.InterceptConsent
         $intercept = $script:MeasurementModes | Where-Object { $_.Id -eq 'Intercept' }
         $g.InterceptSection.Visibility = if ($intercept) { 'Visible' } else { 'Collapsed' }
@@ -3583,6 +3870,7 @@ function New-MainWindow {
 
     $g = @{
         Window = $window; Session = $null; ByKey = @{}; ByIp = @{}; SeenKeys = @{}; EditingKey = $null
+        NewKeys = @{}; PendingOffline = @{}; RoundNetwork = ''; WatchSession = $null; Tray = $null; LastAlert = $null
         HadHistory = ($script:Known.Count -gt 0); IsLaptop = (Test-IsLaptop); OuiJob = $null; LoadingSettings = $false
         UpnpPS = $null; UpnpSync = $null; UpnpHandle = $null; PrevSelf = $null; PrevTotal = $null; UpnpDisposing = (New-Object System.Collections.ArrayList)
     }
@@ -3650,6 +3938,18 @@ function New-MainWindow {
     $g.MeasureTimer.Interval = [TimeSpan]::FromSeconds(2)
     $g.MeasureTimer.Add_Tick({ Update-Measurement })
 
+    # Alertas: revisión automática de la red y notificaciones junto al reloj
+    foreach ($m in $script:WatchMinuteChoices) {
+        [void]$g.CbWatchMinutes.Items.Add((New-ComboItem $(if ($m -eq 1) { '1 minuto' } else { "$m minutos" }) $m))
+    }
+    $g.WatchTimer = New-Object System.Windows.Threading.DispatcherTimer
+    $g.WatchTimer.Interval = [TimeSpan]::FromMinutes((Get-WatchMinutes $script:Settings))
+    $g.WatchTimer.Add_Tick({ Start-WatchScan })
+    $g.WatchPoll = New-Object System.Windows.Threading.DispatcherTimer
+    $g.WatchPoll.Interval = [TimeSpan]::FromSeconds(1)
+    $g.WatchPoll.Add_Tick({ Update-WatchScan })
+    Initialize-TrayIcon
+
     # --- Eventos ---
     $g.BtnScan.Add_Click({ Start-NetworkScan })
     $g.BtnSettings.Add_Click({ Show-Page 'PageSettings' })
@@ -3684,6 +3984,12 @@ function New-MainWindow {
     }
     $g.ChkIntercept.Add_Checked($consent)
     $g.ChkIntercept.Add_Unchecked($consent)
+    foreach ($chk in $g.ChkAlertNew, $g.ChkAlertOffline, $g.ChkAlertNamedOnly) {
+        $chk.Add_Checked({ Save-AlertSettings })
+        $chk.Add_Unchecked({ Save-AlertSettings })
+    }
+    $g.CbWatchMinutes.Add_SelectionChanged({ Save-AlertSettings })
+    $g.BtnTestAlert.Add_Click({ Send-TestAlert })
     $g.BtnSupport.Add_Click({ Open-ExternalLink $script:SupportUrl })
     $g.BtnSupport.Visibility = if (Test-SupportConfigured) { 'Visible' } else { 'Collapsed' }
     $g.BtnOpenData.Add_Click({
@@ -3696,6 +4002,9 @@ function New-MainWindow {
         if ($g.Session -is [MonitorRed.ScanSession]) { $g.Session.Cancel() }
         $g.Timer.Stop()
         $g.MeasureTimer.Stop()
+        $g.WatchTimer.Stop()
+        Stop-WatchScan
+        Remove-TrayIcon
         Stop-UpnpPoll
         Stop-InterceptCapture
         Stop-AdBanner
@@ -3709,6 +4018,7 @@ function New-MainWindow {
         if (-not $script:AutoScan) { return }
         if (-not (Import-OuiDatabase)) { Start-OuiDownload }
         Start-NetworkScan
+        Restart-WatchTimer
     })
 
     Show-Page 'PageDevices'
