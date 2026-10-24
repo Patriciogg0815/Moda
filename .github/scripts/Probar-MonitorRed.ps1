@@ -411,6 +411,7 @@ Invoke-Click $g.BtnResetDevice
 Assert ($g.ByKey['DA:A1:19:5C:22:01'].DisplayName -eq 'iPhone-de-Ana') 'Restablecer vuelve al nombre automático'
 
 # Alertas: 2 revisiones automáticas. Se conecta un Galaxy nuevo y el Redmi deja de aparecer.
+$estadoEscaneo = $g.TxtStatus.Text
 function Invoke-ScanRound($Records) {
     $g.SeenKeys = @{}; $g.ByIp = @{}; $g.NewKeys = @{}
     foreach ($r in $Records) { Update-DeviceFromRecord $r }
@@ -441,6 +442,7 @@ $a6 = Invoke-ScanRound $sinRouter
 Assert ($a6.Offline.Count -eq 0) 'Si el router no responde (se cayó el Wi-Fi), no se avisa que todos se desconectaron'
 [void](Invoke-ScanRound $ronda)
 Update-DeviceView
+$g.TxtStatus.Text = $estadoEscaneo
 
 # Ajustes
 Invoke-Click $g.BtnSettings
@@ -461,8 +463,11 @@ $g.CbWatchMinutes.SelectedIndex = [array]::IndexOf($script:WatchMinuteChoices, 2
 Update-UI
 Assert ($g.Tray.Visible -and $script:Settings.WatchMinutes -eq 2) 'Se vuelven a activar las alertas'
 $g.WatchTimer.Stop()
+$estadoAntes = $g.TxtStatus.Text
 Invoke-Click $g.BtnTestAlert
 Assert ($g.TxtStatus.Text -match 'Equipo de ejemplo') '«Probar la notificación» muestra un aviso de ejemplo'
+# Para la captura de Ajustes: la línea de estado sin el aviso de ejemplo
+$g.TxtStatus.Text = $estadoAntes
 $upnpItem = $g.ModeItems | Where-Object { $_.Id -eq 'Upnp' }
 Assert ($upnpItem.Available -and $upnpItem.IsActive) 'UPnP aparece disponible y en uso'
 Assert ($g.ModeItems.Count -eq $modeCount) "Ajustes muestra $modeCount modos"
