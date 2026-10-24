@@ -9,7 +9,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb shell pm grant $PKG android.permission.POST_NOTIFICATIONS
 adb logcat -c
 adb shell am start -W -n $PKG/.ui.MainActivity
-sleep 60
+sleep 100
 adb exec-out screencap -p > "$OUT/1-al-abrir.png"
 adb logcat -d > "$OUT/logcat.txt"
 echo "--- Registro de la app ---"

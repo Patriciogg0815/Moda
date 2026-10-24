@@ -82,7 +82,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         WatchWorker.schedule(app)
         // Las revisiones de segundo plano también actualizan la pantalla
         viewModelScope.launch {
-            Monitor.rounds.collect { if (it !== lastShown && !_state.value.scanning) show(it, "") }
+            Monitor.rounds.collect {
+                if (it === lastShown) return@collect
+                if (!_state.value.scanning) {
+                    show(it, "")
+                } else {
+                    // La pantalla espera su turno para escanear: mientras tanto muestra lo que se encontró
+                    gateways = it.gateways
+                    _state.update { st -> st.copy(network = it.network, items = Round.items(it.state, System.currentTimeMillis())) }
+                }
+            }
         }
     }
 
