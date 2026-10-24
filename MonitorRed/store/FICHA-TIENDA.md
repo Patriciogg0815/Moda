@@ -47,9 +47,7 @@ Misma estructura que `store/` de RespaldoDrivers:
 
 1. Entra a [Partner Center](https://partner.microsoft.com/dashboard/apps-and-games/overview) →
    **Aplicaciones y juegos** → **Nueva aplicación** → **Aplicación MSIX o PWA**.
-2. Reserva el nombre **Monitor de Red**. Si no está disponible (es un nombre genérico), prueba en este orden:
-   **Monitor de Red Doméstica**, **Monitor de Red de Casa**, **Mi Red de Casa**. El nombre que reserves va
-   en `identidad.json` → `DisplayName`.
+2. Nombre reservado: **Monitor de Red de Casa** (ya está en `identidad.json` → `DisplayName`).
 3. Ve a **Administración de productos → Identidad del producto** y copia **Package/Identity/Name**
    en `identidad.json` → `IdentityName` (será algo como `GarridoitSolutions.MonitordeRed`).
    `Publisher` y `PublisherDisplayName` ya están completos porque son los mismos de RespaldoDrivers.
@@ -126,7 +124,7 @@ https://patriciogg0815.github.io/Moda/MonitorRed/store/privacidad.html
 
 ## Paso 4 — Ficha de la tienda (Español - México)
 
-**Nombre:** Monitor de Red (el nombre reservado en Partner Center)
+**Nombre:** Monitor de Red de Casa (el nombre reservado en Partner Center)
 
 **Descripción breve**
 > Mira todos los equipos conectados a tu red de casa, con su nombre, IP, MAC y fabricante, y cuánto internet se está usando.
