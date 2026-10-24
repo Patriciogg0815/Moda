@@ -121,6 +121,9 @@ Usa Google AdSense (`pub-6398797687169342`, en `ads.txt`). Es HTML/CSS/JS puro.
 - En apps de escritorio, **solo banners**: nada de Direct Link ni Social Bar, porque la Microsoft Store
   rechaza los anuncios que abren ventanas solos o tapan el contenido. Hay que confirmar con Adsterra que
   permite mostrar sus anuncios dentro de una app.
+- **La edición Store del Monitor de Red mantiene el banner de Adsterra** (decisión del usuario, 24/10/2026).
+  Se envió así a la Store, y la política y la ficha lo declaran. Por eso se cerraron los PR #5 y #6, que
+  quitaban la publicidad. No volver a quitarla salvo que el usuario lo pida o que la certificación lo objete.
 - En AdMob, el usuario no debe tocar sus propios anuncios (clics inválidos). Para probar, usar los IDs de
   prueba de Google.
 
