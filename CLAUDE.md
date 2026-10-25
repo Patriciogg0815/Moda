@@ -148,6 +148,28 @@ y tenía programas que no la dejaban suspender). Muestra cada revisión en rojo/
   4. El encabezado repite la marca: "HP HP ZBook...". Quitar el fabricante del modelo si ya empieza con él.
   - Resultado real en su PC: 6 pantallas azules en 30 días, archivos de Windows dañados (reparables),
     21 programas en el arranque, 2 apagones de golpe.
+- **Pedido nuevo del usuario (25/10/2026, todavía sin hacer): desinstalar actualizaciones de Windows** que
+  dan problemas, con un aviso cuando Microsoft reconoce que una actualización tiene fallas. Diseño acordado:
+  - Nueva revisión "Actualizaciones de Windows" (área Sistema) y una sección en "Herramientas y cambios" con
+    la lista de actualizaciones instaladas (nombre, KB, fecha). Historial: COM `Microsoft.Update.Session` →
+    `QueryHistory`; paquetes: `Get-WindowsPackage -Online` (ReleaseType `Update`/`SecurityUpdate`/`RollupFix`).
+  - Desinstalar: `wusa.exe /uninstall /kb:N /quiet /norestart`; en Windows 11 la acumulativa (LCU) viene
+    junto con la de la pila de servicio y wusa no la quita: usar `DISM /Online /Remove-Package
+    /PackageName:Package_for_RollupFix~...`. Con confirmación, punto de restauración y aviso de reinicio. Las
+    de seguridad: advertir que la PC queda menos protegida. Las de la pila de servicio (SSU) no se pueden quitar.
+  - Para que no se vuelva a instalar sola: ofrecer "Pausar actualizaciones" (Configuración → Windows Update →
+    Pausar actualizaciones, hasta 5 semanas) y explicar cómo reanudarlas.
+  - **Aviso "Microsoft reconoce fallas"**: Microsoft casi nunca dice "desinstálala"; publica "Problemas
+    conocidos" en la página de cada KB (`https://support.microsoft.com/help/<KB>`) y en Windows release health
+    (`https://learn.microsoft.com/windows/release-health/`, una página por versión, p. ej.
+    `status-windows-11-24h2`), y muchas veces lo corrige solo con "Known Issue Rollback" (KIR). La app debe:
+    (a) con internet, leer esas páginas y, si la KB instalada aparece en problemas conocidos abiertos, mostrar
+    en amarillo/rojo "Microsoft reconoce problemas con esta actualización" con el resumen y el enlace; si
+    Microsoft indica desinstalarla o la retiró, decirlo así; (b) sin depender de Microsoft, cruzar fechas:
+    si las pantallas azules, apagones o fallas empezaron después de instalar una actualización, sugerir
+    probar a desinstalarla. Ser claro con el usuario: es una sugerencia, no una certeza.
+  - No hay API oficial gratuita para consumidores (la de Microsoft Graph es para empresas con Intune); por eso
+    se lee la página pública. Si la página cambia de formato, la app debe seguir funcionando sin el aviso.
 
 ### 3. QuéVeo (Android) — **no está en `main`**
 
@@ -278,6 +300,8 @@ Ramas (al 24/10/2026): `main` tiene todo lo terminado; `claude/nifty-archimedes-
    mostrar el avance de "Reparar archivos de Windows"), volver a probar, unir la rama a `main` (PR), reservar
    el nombre "Diagnóstico PC" en Partner Center y poner el `IdentityName` en `DiagnosticoPC/store/identidad.json`.
    Agregar la tarjeta de Diagnóstico PC en garridoitsolutions.lat cuando esté en la Store.
+   Además, el pedido nuevo: **desinstalar actualizaciones de Windows** con aviso de "Microsoft reconoce fallas"
+   (diseño en la sección 2c).
 5. Ideas para después: AdMob en la app de Android; en Windows, seguir vigilando con la ventana cerrada e
    iniciar con Windows; conectores de routers.
 
