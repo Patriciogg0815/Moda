@@ -167,7 +167,8 @@ function Invoke-LongExternal([string]$FilePath, [string[]]$Arguments, [switch]$U
 
 # Explica los códigos de error más comunes de DISM y wusa
 function Get-ExitCodeText([int64]$Code) {
-    $hex = '0x{0:X8}' -f ([int64]$Code -band 0xFFFFFFFF)
+    # 0xFFFFFFFF escrito así en PowerShell vale -1: se usa el número largo
+    $hex = '0x{0:X8}' -f ([int64]$Code -band [int64]4294967295)
     switch ($hex) {
         '0x800F081F' { return "no encontró los archivos para reparar ($hex): revisa la conexión a internet y que Windows Update funcione" }
         '0x800F0906' { return "no pudo descargar los archivos ($hex): revisa la conexión a internet" }
@@ -571,7 +572,22 @@ namespace DiagnosticoPC
         public bool WaitForExit(int milliseconds) { return _p.WaitForExit(milliseconds); }
         public int ExitCode { get { return _p.ExitCode; } }
         public string Output { get { lock (_gate) { return _all.ToString().Replace("\0", ""); } } }
-        public void Kill() { try { if (!_p.HasExited) _p.Kill(); } catch { } }
+        // Cierra el programa y los que abrió (DISM abre DismHost, cmd abre otros)
+        public void Kill()
+        {
+            try
+            {
+                if (_p.HasExited) return;
+                System.Diagnostics.ProcessStartInfo k = new System.Diagnostics.ProcessStartInfo(
+                    System.IO.Path.Combine(Environment.SystemDirectory, "taskkill.exe"), "/T /F /PID " + _p.Id);
+                k.UseShellExecute = false;
+                k.CreateNoWindow = true;
+                System.Diagnostics.Process t = System.Diagnostics.Process.Start(k);
+                t.WaitForExit(10000);
+                if (!_p.HasExited) _p.Kill();
+            }
+            catch { }
+        }
     }
 
     public static class NativeMethods
