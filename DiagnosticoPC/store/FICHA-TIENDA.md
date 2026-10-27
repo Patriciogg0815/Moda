@@ -119,7 +119,8 @@ Partner Center pedirá justificar `runFullTrust` y `allowElevation`. Texto suger
 > alrededor de un minuto). Aparece la lista de revisiones en rojo (grave), amarillo (revisar) y verde
 > (bien). Elegir una revisión muestra qué pasa y los botones «Arreglar» (pide confirmación, crea un punto
 > de restauración y se puede deshacer en «Herramientas y cambios») y «Ver el paso a paso» (abre una
-> ventana con los pasos para hacerlo a mano). La pestaña «Avisos» configura las notificaciones junto al
+> ventana con los pasos para hacerlo a mano). Crear el punto de restauración puede tardar unos minutos: la
+> ventana muestra el tiempo y el botón «Saltar este paso». La pestaña «Avisos» configura las notificaciones junto al
 > reloj («Probar un aviso» muestra una de ejemplo). La app no tiene publicidad; el botón «Apoyar a la
 > app» abre la página de donaciones (Ko-fi) en el navegador.
 
