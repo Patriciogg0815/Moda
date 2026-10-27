@@ -200,7 +200,9 @@ function Get-OwnFunctionNames {
 
 # Ejecuta un bloque en segundo plano (con todas las funciones de la app) sin congelar la ventana.
 # Sin ventana (consola o pruebas de lógica) lo ejecuta directamente.
-function Invoke-Background([scriptblock]$Script, [object[]]$Arguments = @()) {
+# -Cancelable: si el usuario presiona Cancelar o Saltar ($script:Progress.Cancel), deja de esperar al
+# instante (lo que corre en segundo plano se abandona, sin congelar la ventana).
+function Invoke-Background([scriptblock]$Script, [object[]]$Arguments = @(), [switch]$Cancelable) {
     if (-not $script:Gui) { return & $Script @Arguments }
     $iss = [Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
     foreach ($name in Get-OwnFunctionNames) {
@@ -221,6 +223,7 @@ function Invoke-Background([scriptblock]$Script, [object[]]$Arguments = @()) {
     $rs.Open()
     $ps = [PowerShell]::Create()
     $ps.Runspace = $rs
+    $abandoned = $false
     try {
         [void]$ps.AddScript($Script.ToString())
         foreach ($a in $Arguments) { [void]$ps.AddArgument($a) }
@@ -228,6 +231,12 @@ function Invoke-Background([scriptblock]$Script, [object[]]$Arguments = @()) {
         while (-not $handle.IsCompleted) {
             Update-UI
             if ($script:Gui -and $script:Gui.OvDetail -and $script:Progress.Text) { Set-BusyProgress }
+            if ($Cancelable -and $script:Progress.Cancel) {
+                # Detenerlo podría tardar (por ejemplo, Windows creando el punto de restauración): se abandona
+                $abandoned = $true
+                try { [void]$ps.BeginStop($null, $null) } catch { }
+                throw 'Cancelado por el usuario.'
+            }
             Start-Sleep -Milliseconds 30
         }
         $result = $ps.EndInvoke($handle)
@@ -237,8 +246,10 @@ function Invoke-Background([scriptblock]$Script, [object[]]$Arguments = @()) {
         foreach ($r in $result) { $out += $r }
         $out
     } finally {
-        $ps.Dispose()
-        $rs.Dispose()
+        if (-not $abandoned) {
+            $ps.Dispose()
+            $rs.Dispose()
+        }
     }
 }
 
@@ -3586,13 +3597,14 @@ function Show-Overlay([string]$Title, [string]$Detail = 'Un momento, por favor..
 }
 
 # Botón "Cancelar" mientras corre un arreglo largo (en la ventana principal o en la del paso a paso)
-function Set-CancelButton([bool]$On) {
+function Set-CancelButton([bool]$On, [string]$Text = 'Cancelar') {
     $g = $script:Gui
     $g.OvCancel.IsEnabled = $true
+    $g.OvCancel.Content = $Text
     $g.OvCancel.Visibility = if ($On) { 'Visible' } else { 'Collapsed' }
     $w = $script:Wizard
     if ($w -and $w.Window.IsVisible) {
-        $w.WzClose.Content = if ($On) { 'Cancelar' } else { 'Cerrar' }
+        $w.WzClose.Content = if ($On) { $Text } else { 'Cerrar' }
         $w.WzClose.IsEnabled = $On
     }
 }
@@ -3601,7 +3613,7 @@ function Request-Cancel {
     $script:Progress.Cancel = $true
     $script:Gui.OvCancel.IsEnabled = $false
     if ($script:Wizard -and $script:Wizard.Window.IsVisible) { $script:Wizard.WzClose.IsEnabled = $false }
-    $script:Progress.Text = 'Cancelando, espera unos segundos...'
+    $script:Progress.Text = 'Deteniendo, espera unos segundos...'
 }
 
 function Hide-Overlay {
@@ -3643,7 +3655,11 @@ function Set-BusyProgress {
         $pct = [double]$p.Percent
         if ($pct -ge 0) { $info = ('{0:N1} % · ' -f $pct) + $info }
         $quiet = if ($p.LastProgress) { $now - $p.LastProgress } else { [TimeSpan]::Zero }
-        if ($quiet.TotalMinutes -ge 3) {
+        if ($p.Phase -eq 'restore') {
+            if (($now - $p.Started).TotalSeconds -ge 45) {
+                $info += "`nWindows a veces tarda varios minutos en crear el punto de restauración. Si no quieres esperar, presiona «$($g.OvCancel.Content)»."
+            }
+        } elseif ($pct -ge 0 -and $quiet.TotalMinutes -ge 3) {
             $info += "`nHace $([int][Math]::Floor($quiet.TotalMinutes)) min que no cambia el porcentaje. Es normal: DISM y SFC se quedan a veces varios minutos en el mismo número. No apagues la PC."
         }
         if (-not $script:Wizard -or -not $script:Wizard.Window.IsVisible) {
@@ -3862,9 +3878,28 @@ function Invoke-FixFlow([string]$Id, $Arg) {
     try {
         $note = $null
         if ($changes -and -not $script:RestorePointDone) {
-            Set-BusyText 'Creando un punto de restauración (puede tardar un minuto)...'
-            $note = @(Invoke-Background { New-RestorePoint })[0]
             $script:RestorePointDone = $true
+            $script:Progress.Text = 'Creando un punto de restauración de Windows'
+            $script:Progress.Phase = 'restore'
+            $script:Progress.Long = $true
+            $script:Progress.Cancel = $false
+            $script:Progress.Percent = -1
+            $script:Progress.Started = Get-Date
+            $script:Progress.LastProgress = Get-Date
+            Set-BusyText 'Creando un punto de restauración de Windows'
+            Set-CancelButton $true 'Saltar este paso'
+            try {
+                $note = @(Invoke-Background { New-RestorePoint } -Cancelable)[0]
+            } catch {
+                if (-not $script:Progress.Cancel) { throw }
+                $note = 'Se saltó el punto de restauración. El cambio igual se puede deshacer en «Herramientas y cambios».'
+                Write-Log 'Punto de restauración saltado por el usuario'
+            } finally {
+                $script:Progress.Phase = $null
+                $script:Progress.Cancel = $false
+                $script:Progress.Long = $false
+                Set-CancelButton $false
+            }
         }
         Set-BusyText 'Aplicando el arreglo...'
         $long = [bool]($script:FixInfo[$Id] -and $script:FixInfo[$Id].Long)
@@ -3877,7 +3912,7 @@ function Invoke-FixFlow([string]$Id, $Arg) {
         $script:Progress.Long = $long
         if ($long) {
             Set-CancelButton $true
-            $res = @(Invoke-Background { param($i, $a) Invoke-Fix $i $a } @($Id, $Arg))[0]
+            $res = @(Invoke-Background { param($i, $a) Invoke-Fix $i $a } @($Id, $Arg) -Cancelable)[0]
         } else {
             $res = Invoke-Fix $Id $Arg
         }
@@ -4195,7 +4230,27 @@ function Invoke-Tool([string]$Id) {
         'reliability'  { Open-Target 'perfmon.exe|/rel' }
         'restorepoint' {
             Invoke-GuiAction 'Creando un punto de restauración...' {
-                $note = @(Invoke-Background { New-RestorePoint })[0]
+                $script:Progress.Text = 'Creando un punto de restauración de Windows'
+                $script:Progress.Phase = 'restore'
+                $script:Progress.Long = $true
+                $script:Progress.Cancel = $false
+                $script:Progress.Percent = -1
+                $script:Progress.Started = Get-Date
+                $script:Progress.LastProgress = Get-Date
+                Set-CancelButton $true 'Dejar de esperar'
+                try {
+                    $note = @(Invoke-Background { New-RestorePoint } -Cancelable)[0]
+                } catch {
+                    if (-not $script:Progress.Cancel) { throw }
+                    Show-OverlayResult -Kind Info -Title 'Se dejó de esperar' -Text 'Windows puede seguir creando el punto de restauración por su cuenta. Puedes revisarlo en «Abrir Restaurar sistema».'
+                    return
+                } finally {
+                    $script:Progress.Phase = $null
+                    $script:Progress.Cancel = $false
+                    $script:Progress.Long = $false
+                    $script:Progress.Text = ''
+                    Set-CancelButton $false
+                }
                 if ($note) { Show-OverlayResult -Kind Warn -Title 'No se pudo crear' -Text $note }
                 else {
                     $script:RestorePointDone = $true

@@ -309,6 +309,15 @@ Assert (@($g.AllFindings).Count -ge 15) "Análisis real desde la ventana: $(@($g
 Assert ($g.PageResults.Visibility -eq 'Visible' -and $g.FindingList.Items.Count -eq @($g.AllFindings).Count) 'Muestra la lista de resultados'
 Hide-Overlay
 
+# «Saltar este paso» / «Cancelar»: deja de esperar al instante aunque lo de segundo plano no termine
+$script:Progress.Cancel = $true
+$sw = [Diagnostics.Stopwatch]::StartNew()
+$stopped = $false
+try { [void](Invoke-Background { Start-Sleep -Seconds 30 } -Cancelable) } catch { $stopped = $true }
+$sw.Stop()
+$script:Progress.Cancel = $false
+Assert ($stopped -and $sw.Elapsed.TotalSeconds -lt 5) "«Saltar este paso» deja de esperar al instante ($([int]$sw.Elapsed.TotalSeconds) s)"
+
 # Avisos desde la ventana (en segundo plano)
 Invoke-WatchRound
 Assert (-not $g.WatchRunning) 'Revisión de avisos desde la ventana sin errores'
@@ -581,6 +590,16 @@ Set-CancelButton $true
 Set-BusyProgress
 Assert ($g.OvPercent.Text -match '62[.,]3 %' -and $g.OvPercent.Text -match 'Lleva 9 min' -and $g.OvPercent.Text -match 'Es normal' -and $g.OvCancel.Visibility -eq 'Visible') "Muestra el avance: $($g.OvPercent.Text -replace "`n", ' / ')"
 Save-Shot 'x-reparando'
+# Punto de restauración: sin porcentaje, con tiempo, aviso y «Saltar este paso»
+$script:Progress.Text = 'Creando un punto de restauración de Windows'
+$script:Progress.Phase = 'restore'
+$script:Progress.Percent = -1
+$script:Progress.Started = (Get-Date).AddMinutes(-1).AddSeconds(-12)
+Set-CancelButton $true 'Saltar este paso'
+Set-BusyProgress
+Assert ($g.OvCancel.Content -eq 'Saltar este paso' -and $g.OvPercent.Text -match 'Lleva 1 min' -and $g.OvPercent.Text -match 'Saltar este paso' -and $g.Progress.IsIndeterminate) "Punto de restauración: $($g.OvPercent.Text -replace "`n", ' / ')"
+Save-Shot 'x-punto-restauracion'
+$script:Progress.Phase = $null
 Invoke-Click $g.OvCancel
 Assert ($script:Progress.Cancel -and -not $g.OvCancel.IsEnabled) 'El botón «Cancelar» pide detener el arreglo'
 $script:Progress.Cancel = $false
