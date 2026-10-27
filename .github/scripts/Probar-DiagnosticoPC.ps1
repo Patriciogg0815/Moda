@@ -93,7 +93,8 @@ $ups = @(
 )
 $sus = Find-SuspectUpdate $ups @((Get-Date).AddDays(-10), (Get-Date).AddDays(-3), (Get-Date).AddDays(-1))
 Assert ($sus.Update.KB -eq '5000003' -and $sus.Failures -eq 3) 'Encuentra la actualización instalada justo antes de que empezaran las fallas'
-Assert ($null -eq (Find-SuspectUpdate $ups @((Get-Date).AddDays(-30), (Get-Date).AddDays(-2)))) 'No culpa a una actualización si las fallas empezaron antes'
+Assert ($null -eq (Find-SuspectUpdate $ups @((Get-Date).AddDays(-55), (Get-Date).AddDays(-2)))) 'No culpa a una actualización si las fallas empezaron antes'
+Assert ($null -eq (Find-SuspectUpdate $ups @((Get-Date).AddDays(-25), (Get-Date).AddDays(-2)))) 'No culpa a una actualización instalada más de una semana antes de la primera falla'
 $upd = @(Get-InstalledUpdates)
 Write-Host "Actualizaciones instaladas en el equipo de GitHub: $($upd.Count) (la más nueva: KB$($upd[0].KB) $($upd[0].Title))"
 Assert ($upd.Count -ge 1 -and $upd[0].KB -match '^\d{6,8}$') 'Lee las actualizaciones instaladas'

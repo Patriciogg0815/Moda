@@ -1900,13 +1900,14 @@ function Get-UpdatesPausedUntil {
     $null
 }
 
-# La actualización instalada justo antes de que empezaran las fallas (pantallas azules o apagones)
+# La actualización instalada justo antes de que empezaran las fallas (pantallas azules o apagones):
+# como máximo una semana antes de la primera falla de los últimos 60 días, y con al menos 2 fallas
 function Find-SuspectUpdate($Updates, $FailureTimes) {
     $now = Get-Date
     $times = @($FailureTimes | Where-Object { $_ -and $_ -ge $now.AddDays(-60) } | Sort-Object)
     if ($times.Count -lt 2) { return $null }
     $first = $times[0]
-    $candidates = @($Updates | Where-Object { $_.Date -and $_.Date -le $first -and $_.Date -ge $first.AddDays(-21) -and (Get-UpdateKind $_) -ne 'Pila de servicio' } |
+    $candidates = @($Updates | Where-Object { $_.Date -and $_.Date -le $first -and $_.Date -ge $first.AddDays(-7) -and (Get-UpdateKind $_) -ne 'Pila de servicio' } |
         Sort-Object Date -Descending)
     if (-not $candidates.Count) { return $null }
     [pscustomobject]@{ Update = $candidates[0]; FirstFailure = $first; Failures = $times.Count }
