@@ -106,7 +106,7 @@ de tipos y alertas que Windows. Detalles en `MonitorRedAndroid/README.md`.
 - Para compilar en la nube de Claude: Maven Central responde 429; se usa el espejo de Google en
   `~/.gradle/init.d` (solo local) y `-ProbolectricRepo`.
 
-### 2c. Diagnóstico PC (Windows) — rama `claude/nifty-archimedes-rqs2eo` (todavía **no** está en `main`)
+### 2c. Diagnóstico PC (Windows) — en `main` (PR #12, 27/10/2026)
 
 Autodiagnóstico de Windows (idea del usuario: su laptop se calentaba en la mochila porque no hibernaba bien
 y tenía programas que no la dejaban suspender). Muestra cada revisión en rojo/amarillo/verde, con botón
@@ -131,7 +131,8 @@ y tenía programas que no la dejaban suspender). Muestra cada revisión en rojo/
   todos los textos. Kit: artifact `MicrosoftStore-DiagnosticoPC-1.0.N`. Nombre **reservado** el 27/10/2026:
   "Diagnóstico PC", identidad `GarridoitSolutions.DiagnsticoPC` (sin la «ó», así la generó Partner Center; PFN
   `GarridoitSolutions.DiagnsticoPC_qketwn0rzx7t0`), ya en `store/identidad.json`: sirve el kit 1.0.15 o más nuevo.
-  **Pendiente:** unir la rama a `main` para que se publique la política de privacidad en GitHub Pages.
+  Política de privacidad ya publicada en GitHub Pages. El usuario está haciendo el envío en Partner Center
+  (27/10/2026).
 - Limitación conocida: no identifica el driver exacto de una pantalla azul (necesitaría WinDbg); da la
   causa por el código del error.
 - **Prueba del usuario en su PC (24/10/2026, v1.0.9, HP ZBook Power 15.6 G10, Windows 11 Pro 26H2)**: resultado
@@ -268,7 +269,7 @@ más reciente → Artifacts** (duran 90 días); los de `main` también quedan en
 | RespaldoDrivers (Windows) | [`RespaldoDrivers/`](https://github.com/Patriciogg0815/Moda/tree/main/RespaldoDrivers) + [`store/`](https://github.com/Patriciogg0815/Moda/tree/main/store) | [compilar-exe.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/compilar-exe.yml) | [Releases](https://github.com/Patriciogg0815/Moda/releases) tags `v1.0.N` · enviada a la Store (en certificación) |
 | Monitor de Red (Windows) | [`MonitorRed/`](https://github.com/Patriciogg0815/Moda/tree/main/MonitorRed) | [monitor-red.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/monitor-red.yml) | Releases tags `monitor-red-v1.0.N` (última `monitor-red-v1.0.37`) · enviada a la Store |
 | Monitor de Red (Android) | [`MonitorRedAndroid/`](https://github.com/Patriciogg0815/Moda/tree/main/MonitorRedAndroid) | [monitor-red-android.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/monitor-red-android.yml) | Artifact `GooglePlay-MonitorRed-1.0.N` · falta firmar y subir a Play |
-| **Diagnóstico PC** (Windows) | rama [`claude/nifty-archimedes-rqs2eo`](https://github.com/Patriciogg0815/Moda/tree/claude/nifty-archimedes-rqs2eo/DiagnosticoPC) | [diagnostico-pc.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/diagnostico-pc.yml) | Última verde: [ejecución 13](https://github.com/Patriciogg0815/Moda/actions/runs/40524257099) → artifacts `DiagnosticoPC-1.0.13` (el `.exe`) y `MicrosoftStore-DiagnosticoPC-1.0.13` (kit con msix, 8 capturas, logos, arte y ficha). Con los arreglos de la prueba del usuario, las actualizaciones de Windows y «Saltar este paso» (ver 2c) |
+| **Diagnóstico PC** (Windows) | [`DiagnosticoPC/`](https://github.com/Patriciogg0815/Moda/tree/main/DiagnosticoPC) | [diagnostico-pc.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/diagnostico-pc.yml) | Releases tags `diagnostico-pc-v1.0.N` (primera en `main`: `diagnostico-pc-v1.0.17`) · artifact `MicrosoftStore-DiagnosticoPC-1.0.N` (kit con msix, 8 capturas, logos, arte y ficha; 1.0.15 o más nuevo para la Store) · en envío a la Store |
 | Web garridoitsolutions.lat | [`web-garridoitsolutions/`](https://github.com/Patriciogg0815/Moda/tree/main/web-garridoitsolutions) (instrucciones para Claude de escritorio) | — (se publica desde la PC) | Tanda 1 publicada, tanda 2 pendiente |
 | QuéVeo (Android, versión vieja) | rama [`claude/lucid-wozniak-0g599n`](https://github.com/Patriciogg0815/Moda/tree/claude/lucid-wozniak-0g599n) | — | La versión vigente está en la PC (`C:\pelis`) |
 | Convertir.ec (web) | repo privado https://github.com/Patriciogg0815/convertir-ec | Netlify publica `main` solo | https://convertir-ec.netlify.app/ |
@@ -277,11 +278,9 @@ más reciente → Artifacts** (duran 90 días); los de `main` también quedan en
 Políticas de privacidad publicadas con GitHub Pages desde `main`:
 - RespaldoDrivers: https://patriciogg0815.github.io/Moda/store/privacidad.html
 - Monitor de Red: https://patriciogg0815.github.io/Moda/MonitorRed/store/privacidad.html
-- Diagnóstico PC: https://patriciogg0815.github.io/Moda/DiagnosticoPC/store/privacidad.html (**funcionará
-  cuando la rama de Diagnóstico PC se una a `main`**)
+- Diagnóstico PC: https://patriciogg0815.github.io/Moda/DiagnosticoPC/store/privacidad.html
 
-Ramas (al 24/10/2026): `main` tiene todo lo terminado; `claude/nifty-archimedes-rqs2eo` = Diagnóstico PC
-(sin unir); `claude/lucid-wozniak-0g599n` y `claude/movie-series-recommender-app-unh84n` = QuéVeo viejo;
+Ramas (al 27/10/2026): `main` tiene todo lo terminado (Diagnóstico PC incluido, PR #12); `claude/lucid-wozniak-0g599n` y `claude/movie-series-recommender-app-unh84n` = QuéVeo viejo;
 `claude/project-thread-hfo1sm` y `claude/project-thread-uf9bcg` = versiones viejas del Monitor sin publicidad
 (no unir: se decidió mantener la publicidad). Las demás ramas ya están unidas a `main`.
 
@@ -295,9 +294,9 @@ Ramas (al 24/10/2026): `main` tiene todo lo terminado; `claude/nifty-archimedes-
    cambiar sus insignias "Coming Soon" en garridoitsolutions.lat por las de "Disponible" con su enlace, y
    enviar la actualización del Monitor con alertas (kit 1.0.37 o más nuevo).
 4. **Diagnóstico PC:** los 4 problemas y la desinstalación de actualizaciones ya están hechos (27/10/2026).
-   Nombre reservado e identidad puesta (27/10/2026). Falta: que el usuario pruebe la versión nueva en su PC,
-   unir la rama a `main` (PR, para la política de privacidad), enviar a la Store con el kit 1.0.15 o más nuevo y
-   agregar la tarjeta de Diagnóstico PC en garridoitsolutions.lat cuando esté en la Store.
+   Nombre reservado, identidad puesta y rama unida a `main` (PR #12, 27/10/2026). Falta: que el usuario pruebe
+   la versión nueva en su PC, terminar el envío a la Store (kit 1.0.15 o más nuevo; si la rechazan, traer el
+   informe de Partner Center) y agregar la tarjeta de Diagnóstico PC en garridoitsolutions.lat cuando esté en la Store.
 5. Ideas para después: AdMob en la app de Android; en Windows, seguir vigilando con la ventana cerrada e
    iniciar con Windows; conectores de routers.
 
@@ -319,4 +318,6 @@ Ramas (al 24/10/2026): `main` tiene todo lo terminado; `claude/nifty-archimedes-
 - Apps de Windows: un `.ps1` (PowerShell 5.1 + WPF) → `.exe` con ps2exe → GitHub Actions lo compila,
   prueba la interfaz con capturas y publica. Cada app tiene su `store/` con el MSIX para la Microsoft Store.
 - La versión es `1.0.<número de ejecución de Actions>`.
+- ps2exe se instala de PowerShell Gallery; si la versión más nueva no se descarga (pasó el 27/10/2026 con
+  la 1.0.18: 404), los workflows instalan la 1.0.17.
 - Los `.exe` no están firmados: en el README se explica "Más información → Ejecutar de todas formas".

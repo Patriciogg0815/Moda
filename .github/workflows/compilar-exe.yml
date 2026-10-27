@@ -55,7 +55,12 @@ jobs:
         shell: powershell
         run: |
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-          Install-Module ps2exe -Scope CurrentUser -Force
+          # Si la versión más nueva no se puede descargar de PowerShell Gallery, usa la anterior
+          try { Install-Module ps2exe -Scope CurrentUser -Force -ErrorAction Stop }
+          catch {
+            Write-Warning "No se pudo instalar la versión más nueva de ps2exe: $_"
+            Install-Module ps2exe -RequiredVersion 1.0.17 -Scope CurrentUser -Force -ErrorAction Stop
+          }
 
       - name: Generar RespaldoDrivers.exe
         shell: powershell
