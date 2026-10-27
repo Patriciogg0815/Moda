@@ -1,0 +1,140 @@
+# Diagnóstico PC: prueba y compila DiagnosticoPC.exe en Windows.
+# - En cada cambio: prueba la lógica, un análisis real del equipo de GitHub y la ventana (capturas en "Artifacts").
+# - Genera DiagnosticoPC.exe, la edición para la Microsoft Store, su paquete MSIX y el kit con todo lo que
+#   pide Partner Center (artifact MicrosoftStore-DiagnosticoPC-1.0.N).
+# - En la rama main: además publica una versión descargable en "Releases" (tag diagnostico-pc-v1.0.N).
+name: Diagnóstico PC
+
+on:
+  push:
+    paths:
+      - 'DiagnosticoPC/**'
+      - '.github/workflows/diagnostico-pc.yml'
+      - '.github/scripts/Probar-DiagnosticoPC.ps1'
+  pull_request:
+    paths:
+      - 'DiagnosticoPC/**'
+      - '.github/workflows/diagnostico-pc.yml'
+      - '.github/scripts/Probar-DiagnosticoPC.ps1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    env:
+      VERSION: 1.0.${{ github.run_number }}
+      # En las pruebas la app no crea puntos de restauración ni abre otros programas
+      DIAGNOSTICOPC_PRUEBA: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolución de pantalla para las capturas
+        shell: powershell
+        continue-on-error: true
+        run: Set-DisplayResolution -Width 1920 -Height 1080 -Force
+
+      - name: Probar la lógica, un análisis real y la ventana
+        shell: powershell
+        run: .\.github\scripts\Probar-DiagnosticoPC.ps1
+
+      - name: Probar la edición para la Microsoft Store
+        shell: powershell
+        run: .\.github\scripts\Probar-DiagnosticoPC.ps1 -EdicionStore
+
+      - name: Probar el modo consola (-Analizar)
+        shell: powershell
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File .\DiagnosticoPC\DiagnosticoPC.ps1 -Analizar -Informe "$PWD\capturas\informe-consola.html"
+          if ($LASTEXITCODE) { throw "El modo consola terminó con el código $LASTEXITCODE" }
+          if (-not (Test-Path capturas\informe-consola.html)) { throw 'No se generó el informe' }
+
+      - name: Capturas en el registro
+        if: always()
+        shell: powershell
+        run: |
+          Get-ChildItem capturas -Filter *.jpg -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+            $b64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($_.FullName))
+            Write-Host "::group::$($_.Name)"
+            for ($i = 0; $i -lt $b64.Length; $i += 4000) { Write-Host ("B64|{0}|{1}" -f ($_.FullName.Substring((Resolve-Path capturas).Path.Length + 1) -replace '\\', '-' -replace '\.jpg$', ''), $b64.Substring($i, [Math]::Min(4000, $b64.Length - $i))) }
+            Write-Host '::endgroup::'
+          }
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: capturas-diagnostico-pc
+          path: |
+            capturas/**/*.png
+            capturas/**/*.html
+          if-no-files-found: ignore
+
+      - name: Instalar ps2exe
+        shell: powershell
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module ps2exe -Scope CurrentUser -Force
+
+      - name: Generar DiagnosticoPC.exe
+        shell: powershell
+        run: |
+          .\DiagnosticoPC\Crear-EXE.ps1 -Version $env:VERSION -OutputDir dist\exe
+          .\DiagnosticoPC\Crear-EXE.ps1 -Version $env:VERSION -OutputDir dist\store -EdicionStore
+
+      - name: Probar que el .exe abre su ventana
+        shell: powershell
+        run: |
+          $p = Start-Process -FilePath dist\exe\DiagnosticoPC.exe -PassThru
+          Start-Sleep -Seconds 20
+          $p.Refresh()
+          if ($p.HasExited) { throw "DiagnosticoPC.exe se cerró solo (código $($p.ExitCode))" }
+          $title = $p.MainWindowTitle
+          Stop-Process -Id $p.Id -Force
+          if ($title -notlike 'Diagn*stico PC') { throw "Se esperaba la ventana 'Diagnostico PC' y apareció '$title'" }
+          Write-Host "OK: DiagnosticoPC.exe abrió su ventana ($title)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DiagnosticoPC-${{ env.VERSION }}
+          path: dist/exe/DiagnosticoPC.exe
+
+      - name: Generar paquete MSIX (Microsoft Store)
+        shell: powershell
+        run: .\DiagnosticoPC\store\Crear-MSIX.ps1 -ExePath dist\store\DiagnosticoPC.exe -Version "$env:VERSION.0" -OutputDir dist-store
+
+      - name: Probar instalación del MSIX
+        shell: powershell
+        run: .\DiagnosticoPC\store\Probar-MSIX.ps1 -Package dist-store\DiagnosticoPC.msix
+
+      # Todo lo que pide Partner Center en una sola descarga: paquete, logos, arte, capturas reales y textos
+      - name: Armar el kit para la Microsoft Store
+        shell: powershell
+        run: |
+          $kit = 'dist-store\kit'
+          New-Item -ItemType Directory -Path "$kit\capturas" -Force | Out-Null
+          Copy-Item dist-store\DiagnosticoPC.msix $kit
+          Copy-Item DiagnosticoPC\store\LogoTienda-*.png, DiagnosticoPC\store\ArteSuperheroe-*.png, DiagnosticoPC\store\FICHA-TIENDA.md $kit
+          Get-ChildItem capturas\store\*.png | Where-Object { $_.Name -match '^[1-8]-' } | Copy-Item -Destination "$kit\capturas"
+          Get-ChildItem $kit -Recurse -File | ForEach-Object { Write-Host "$($_.FullName.Substring((Resolve-Path $kit).Path.Length + 1))  ($([int]($_.Length / 1KB)) KB)" }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MicrosoftStore-DiagnosticoPC-${{ env.VERSION }}
+          path: dist-store/kit/
+
+      - name: Publicar versión
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: diagnostico-pc-v${{ env.VERSION }}
+          target_commitish: ${{ github.sha }}
+          name: Diagnóstico PC ${{ env.VERSION }}
+          make_latest: false
+          body: |
+            **Descarga `DiagnosticoPC.exe`** y ábrelo con doble clic (pide permiso de administrador): revisa tu PC y te muestra los problemas en rojo, amarillo y verde, con el paso a paso para arreglarlos.
+            Es la aplicación completa en un solo archivo: no necesita instalarse.
+
+            Como el .exe no está firmado digitalmente, Windows puede mostrar "Windows protegió su PC": elige **Más información → Ejecutar de todas formas**.
+          files: dist/exe/DiagnosticoPC.exe

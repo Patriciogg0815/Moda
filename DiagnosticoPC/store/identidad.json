@@ -1,0 +1,7 @@
+{
+  "_instrucciones": "Valores de Partner Center > Diagnóstico PC > Identidad del producto. Reemplaza IdentityName cuando reserves el nombre. DisplayName debe ser igual al nombre reservado en la Store.",
+  "IdentityName": "GarridoitSolutions.DiagnsticoPC",
+  "Publisher": "CN=97E71BB8-34DD-4461-A440-AFE4AC83ADB3",
+  "PublisherDisplayName": "GarridoitSolutions",
+  "DisplayName": "Diagnóstico PC"
+}
