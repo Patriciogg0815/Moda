@@ -54,13 +54,26 @@ jobs:
       - name: Instalar ps2exe
         shell: powershell
         run: |
-          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-          # Si la versión más nueva no se puede descargar de PowerShell Gallery, usa la anterior
-          try { Install-Module ps2exe -Scope CurrentUser -Force -ErrorAction Stop }
-          catch {
-            Write-Warning "No se pudo instalar la versión más nueva de ps2exe: $_"
-            Install-Module ps2exe -RequiredVersion 1.0.17 -Scope CurrentUser -Force -ErrorAction Stop
+          # PowerShell Gallery a veces falla: registra el repositorio si falta, reintenta y,
+          # si la versión más nueva no se puede descargar, usa la anterior
+          $listo = $false
+          foreach ($intento in 1..3) {
+            try {
+              if (-not (Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue)) { Register-PSRepository -Default }
+              Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+              try { Install-Module ps2exe -Scope CurrentUser -Force -ErrorAction Stop }
+              catch {
+                Write-Warning "No se pudo instalar la versión más nueva de ps2exe: $_"
+                Install-Module ps2exe -RequiredVersion 1.0.17 -Scope CurrentUser -Force -ErrorAction Stop
+              }
+              $listo = $true
+              break
+            } catch {
+              Write-Warning "Intento $intento de instalar ps2exe: $_"
+              Start-Sleep -Seconds (20 * $intento)
+            }
           }
+          if (-not $listo) { throw 'No se pudo instalar ps2exe desde PowerShell Gallery.' }
 
       - name: Generar RespaldoDrivers.exe
         shell: powershell

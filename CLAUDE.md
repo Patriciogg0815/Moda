@@ -318,6 +318,7 @@ Ramas (al 27/10/2026): `main` tiene todo lo terminado (Diagnóstico PC incluido,
 - Apps de Windows: un `.ps1` (PowerShell 5.1 + WPF) → `.exe` con ps2exe → GitHub Actions lo compila,
   prueba la interfaz con capturas y publica. Cada app tiene su `store/` con el MSIX para la Microsoft Store.
 - La versión es `1.0.<número de ejecución de Actions>`.
-- ps2exe se instala de PowerShell Gallery; si la versión más nueva no se descarga (pasó el 27/10/2026 con
-  la 1.0.18: 404), los workflows instalan la 1.0.17.
+- ps2exe se instala de PowerShell Gallery, que a veces falla (27/10/2026: la 1.0.18 daba 404 y otra vez
+  «No repository with the name 'PSGallery'»). Los workflows registran el repositorio si falta, reintentan 3 veces
+  e instalan la 1.0.17 si la más nueva no se descarga.
 - Los `.exe` no están firmados: en el README se explica "Más información → Ejecutar de todas formas".
