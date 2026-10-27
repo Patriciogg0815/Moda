@@ -319,6 +319,6 @@ Ramas (al 27/10/2026): `main` tiene todo lo terminado (Diagnóstico PC incluido,
   prueba la interfaz con capturas y publica. Cada app tiene su `store/` con el MSIX para la Microsoft Store.
 - La versión es `1.0.<número de ejecución de Actions>`.
 - ps2exe se instala de PowerShell Gallery, que a veces falla (27/10/2026: la 1.0.18 daba 404 y otra vez
-  «No repository with the name 'PSGallery'»). Los workflows registran el repositorio si falta, reintentan 3 veces
-  e instalan la 1.0.17 si la más nueva no se descarga.
+  «No repository with the name 'PSGallery'»). Si `Install-Module` falla, los workflows descargan el paquete
+  directamente (`api/v2/package/ps2exe`, y si no la 1.0.17) y lo copian a la carpeta de módulos.
 - Los `.exe` no están firmados: en el README se explica "Más información → Ejecutar de todas formas".
