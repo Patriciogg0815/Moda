@@ -42,11 +42,13 @@
   </Applications>
 
   <Capabilities>
+    <!-- Descarga las páginas públicas de soporte de Microsoft de las actualizaciones instaladas -->
+    <Capability Name="internetClient" />
     <!-- Aplicación de escritorio clásica (WPF compilada con ps2exe): lee la configuración de energía,
          los registros de eventos, los drivers y el estado de los discos de Windows -->
     <rescap:Capability Name="runFullTrust" />
     <!-- Necesita permisos de administrador para revisar y cambiar la configuración de energía,
-         reparar archivos de Windows y crear puntos de restauración -->
+         reparar archivos de Windows, desinstalar actualizaciones y crear puntos de restauración -->
     <rescap:Capability Name="allowElevation" />
   </Capabilities>
 </Package>

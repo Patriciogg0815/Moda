@@ -116,7 +116,7 @@ jobs:
           New-Item -ItemType Directory -Path "$kit\capturas" -Force | Out-Null
           Copy-Item dist-store\DiagnosticoPC.msix $kit
           Copy-Item DiagnosticoPC\store\LogoTienda-*.png, DiagnosticoPC\store\ArteSuperheroe-*.png, DiagnosticoPC\store\FICHA-TIENDA.md $kit
-          Get-ChildItem capturas\store\*.png | Where-Object { $_.Name -match '^[1-7]-' } | Copy-Item -Destination "$kit\capturas"
+          Get-ChildItem capturas\store\*.png | Where-Object { $_.Name -match '^[1-8]-' } | Copy-Item -Destination "$kit\capturas"
           Get-ChildItem $kit -Recurse -File | ForEach-Object { Write-Host "$($_.FullName.Substring((Resolve-Path $kit).Path.Length + 1))  ($([int]($_.Length / 1KB)) KB)" }
 
       - uses: actions/upload-artifact@v4

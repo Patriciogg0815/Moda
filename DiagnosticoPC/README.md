@@ -26,7 +26,8 @@ programas que no la dejaban suspenderse.
 | Drivers | Dispositivos con error (código del Administrador de dispositivos), driver de video genérico o antiguo | Reinstalar o activar el dispositivo, volver a detectar el hardware, abrir drivers opcionales de Windows Update |
 | Pantallas azules | Confirma si hubo (eventos 1001 y Kernel-Power 41, y los minidumps), código, causa probable y apagones de golpe | Según la causa: inicio rápido, drivers, prueba de memoria, revisión del disco, temperatura o reparación de Windows |
 | Registro | Inicio rápido, volcado de memoria, Shell/Userinit cambiados, bloqueos del Administrador de tareas y del Editor del Registro, programas que se abren en su lugar | Restaurar los valores normales |
-| Archivos de Windows | `Repair-WindowsImage -CheckHealth` | DISM `/RestoreHealth` + `sfc /scannow` |
+| Archivos de Windows | `Repair-WindowsImage -CheckHealth` | DISM `/RestoreHealth` + `sfc /scannow`, con porcentaje en vivo, tiempo y botón **Cancelar** |
+| Actualizaciones de Windows | Instaladas (`Get-HotFix` + historial de Windows Update), qué dice Microsoft en la página de cada KB («Known issues in this update»), y si las pantallas azules o apagones empezaron después de instalar una | Desinstalar (wusa; si no se puede, DISM `/Remove-Package`), pausar Windows Update 2 semanas |
 | Disco, batería y seguridad | Espacio libre, salud (SMART, desgaste, errores), batería (capacidad y ciclos), antivirus, reinicio pendiente | Borrar temporales, revisar el disco al reiniciar, informe de batería, reiniciar |
 
 Antes de cada cambio la app pide confirmación, crea un **punto de restauración** y guarda el valor

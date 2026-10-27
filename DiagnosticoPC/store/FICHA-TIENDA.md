@@ -9,7 +9,7 @@ Dentro vienen:
 | En el kit | Dónde va en Partner Center |
 |---|---|
 | `DiagnosticoPC.msix` | **Paquetes** |
-| `capturas/1-resumen.png` … `7-arreglado.png` | **Ficha → Capturas de pantalla** (capturas reales de la edición Store) |
+| `capturas/1-resumen.png` … `8-actualizaciones.png` | **Ficha → Capturas de pantalla** (capturas reales de la edición Store) |
 | `LogoTienda-300x300.png`, `-150x150`, `-71x71` | **Ficha → Imágenes para mostrar en Store (1:1)** |
 | `ArteSuperheroe-3840x2160.png` / `-1920x1080.png` | **Ficha → Arte de superhéroe (16:9)** |
 | `FICHA-TIENDA.md` | Esta guía, con todos los textos para copiar |
@@ -102,13 +102,15 @@ Partner Center pedirá justificar `runFullTrust` y `allowElevation`. Texto suger
 > **runFullTrust:** Diagnóstico PC es una aplicación de escritorio (WPF) que revisa el estado de Windows
 > de forma local: lee la configuración de energía (suspensión, hibernación, temporizadores de
 > reactivación), los registros de eventos del sistema (pantallas azules, apagones, reactivaciones), el
-> estado de los dispositivos y drivers, los discos, la batería y los programas que arrancan con Windows.
-> Muestra cada resultado en rojo, amarillo o verde, con el paso a paso para arreglarlo. Estas funciones
-> requieren una aplicación de escritorio de plena confianza. No envía datos a internet.
+> estado de los dispositivos y drivers, los discos, la batería, las actualizaciones instaladas y los
+> programas que arrancan con Windows. Muestra cada resultado en rojo, amarillo o verde, con el paso a paso
+> para arreglarlo. Estas funciones requieren una aplicación de escritorio de plena confianza. No envía datos
+> del usuario a internet; solo descarga las páginas públicas de soporte de Microsoft de las actualizaciones
+> instaladas para mostrar sus problemas conocidos.
 >
 > **allowElevation:** Windows exige permisos de administrador para leer los pedidos de energía
 > (`powercfg /requests`), revisar y reparar los archivos de Windows (DISM y SFC), cambiar la configuración
-> de energía y crear puntos de restauración. La app nunca cambia nada sin que el usuario lo pida con un
+> de energía, desinstalar una actualización de Windows cuando el usuario lo pide y crear puntos de restauración. La app nunca cambia nada sin que el usuario lo pida con un
 > botón y lo confirme; antes de cada cambio crea un punto de restauración y guarda el valor anterior para
 > poder deshacerlo desde la misma app.
 
@@ -150,6 +152,8 @@ https://patriciogg0815.github.io/Moda/DiagnosticoPC/store/privacidad.html
 > - **Pantallas azules:** confirma si hubo, cuándo, el código del error y su causa probable.
 > - **Registro de Windows:** cambios peligrosos (como los que dejan los virus) y ajustes importantes.
 > - **Archivos de Windows:** archivos dañados o que faltan.
+> - **Actualizaciones de Windows:** te avisa si Microsoft reconoce problemas con una actualización instalada
+>   o si las fallas empezaron justo después de instalarla, y te deja desinstalarla y pausar Windows Update.
 > - **Disco, batería y antivirus:** espacio libre, salud del disco, desgaste de la batería y protección.
 >
 > **Arréglalo con un botón o paso a paso**
@@ -162,7 +166,8 @@ https://patriciogg0815.github.io/Moda/DiagnosticoPC/store/privacidad.html
 > mucho el procesador, si la memoria o el disco se llenan, o si la PC se despertó sola de madrugada.
 >
 > **Privada y gratis**
-> Todo se revisa dentro de tu PC: no se envía nada a internet y no necesitas cuenta. No tiene publicidad;
+> Todo se revisa dentro de tu PC: no se envía ninguno de tus datos y no necesitas cuenta (solo se consultan las
+> páginas públicas de Microsoft sobre tus actualizaciones). No tiene publicidad;
 > si te sirve, puedes apoyarla con el botón «Apoyar a la app». Guarda el diagnóstico en un informe para
 > enviárselo a un técnico.
 
@@ -176,6 +181,7 @@ https://patriciogg0815.github.io/Moda/DiagnosticoPC/store/privacidad.html
 - Drivers faltantes o con fallas
 - Confirma las pantallas azules y explica su causa
 - Revisa el registro y los archivos de Windows
+- Desinstala actualizaciones de Windows que dan problemas
 - Arreglos con un botón y paso a paso para hacerlo tú mismo
 - Punto de restauración y deshacer para cada cambio
 - Avisos junto al reloj cuando aparece un problema
@@ -193,6 +199,7 @@ la edición Store con una laptop de ejemplo (1384×821, más que el mínimo de 1
 5. `5-avisos.png` — Avisos junto al reloj
 6. `6-herramientas.png` — Herramientas de Windows y cambios que se pueden deshacer
 7. `7-arreglado.png` — Un arreglo terminado
+8. `8-actualizaciones.png` — Actualizaciones de Windows con problemas, con el botón «Desinstalar»
 
 **Texto de cada captura** (campo opcional "Leyenda")
 1. Todo tu PC revisado en rojo, amarillo y verde
@@ -202,6 +209,7 @@ la edición Store con una laptop de ejemplo (1384×821, más que el mínimo de 1
 5. Te avisa cuando aparece un problema
 6. Cada cambio se puede deshacer
 7. Arreglos con un botón, seguros
+8. Desinstala la actualización que da problemas
 
 **Imágenes para mostrar en Store (1:1):** `LogoTienda-300x300.png`, `LogoTienda-150x150.png` y
 `LogoTienda-71x71.png` del kit, cada una en su recuadro.

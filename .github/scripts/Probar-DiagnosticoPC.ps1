@@ -61,6 +61,45 @@ foreach ($cause in 'energia', 'driver', 'memoria', 'disco', 'calor', 'video', 's
     Assert ($steps.Count -ge 2 -and -not ($steps | Where-Object { -not $_.Title })) "Paso a paso para la causa «$cause» ($($steps.Count) pasos)"
 }
 
+# Lo que encontró el usuario al probarla en su PC
+Assert ((Format-Minutes 4294967295) -eq 'nunca' -and (Format-Minutes 2147483647) -eq 'nunca' -and (Format-Minutes 3600) -eq '1 hora') 'Un valor enorme de «Hibernar tras» se muestra como «nunca»'
+Assert ((Remove-BrandPrefix 'HP' 'HP ZBook Power 15.6 inch G10') -eq 'ZBook Power 15.6 inch G10' -and (Remove-BrandPrefix 'LENOVO' '20XW0026US') -eq '20XW0026US') 'El modelo no repite la marca («HP HP ZBook»)'
+
+# Programas largos: avance en vivo y cancelar
+$script:Progress.Cancel = $false
+$cmd = Join-Path $env:SystemRoot 'System32\cmd.exe'
+$r = Invoke-LongExternal $cmd @('/c', 'echo [=== 12.5% ===] & ping -n 3 127.0.0.1 >nul & echo [====== 61.3% ======] & exit 0')
+Assert ($r.ExitCode -eq 0 -and $script:Progress.Percent -eq 61.3) "Lee el porcentaje de un programa largo mientras corre ($($script:Progress.Percent) %)"
+$script:Progress.Cancel = $true
+$sw = [Diagnostics.Stopwatch]::StartNew()
+$canceled = $false
+try { [void](Invoke-LongExternal $cmd @('/c', 'ping -n 30 127.0.0.1 >nul')) } catch { $canceled = $true }
+$sw.Stop()
+$script:Progress.Cancel = $false
+Assert ($canceled -and $sw.Elapsed.TotalSeconds -lt 10) "«Cancelar» detiene un programa largo ($([int]$sw.Elapsed.TotalSeconds) s)"
+Assert ((Get-ExitCodeText -2146498529) -match '0x800F081F' -and (Get-ExitCodeText -2146498529) -match 'internet') 'Explica el error 0x800F081F de DISM'
+
+# Actualizaciones de Windows: lo que dice Microsoft en la página de cada KB
+$okPage = '<html><body><h2>Improvements</h2><p>Fixes.</p><h2 id="known">Known issues in this update</h2><p>Microsoft is not currently aware of any issues with this update.</p><h2>How to get this update</h2></body></html>'
+$badPage = '<html><body><h2>Known issues in this update</h2><table><tr><th>Symptom</th><th>Workaround</th></tr><tr><td>After installing this update, some devices might experience a stop error (blue screen) when resuming from sleep.</td><td>To mitigate this issue, you can uninstall this update.</td></tr></table><h2>How to get this update</h2></body></html>'
+$st1 = Read-KbPageStatus $okPage
+$st2 = Read-KbPageStatus $badPage
+Assert ($st1 -and -not $st1.Known) 'Página de Microsoft sin problemas conocidos'
+Assert ($st2.Known -and $st2.Uninstall -and $st2.Summary -match 'stop error') 'Página de Microsoft que reconoce un problema y menciona desinstalarla'
+Assert ($null -eq (Read-KbPageStatus '<html><body>Otra cosa</body></html>')) 'Si Microsoft cambia la página, no inventa un aviso'
+$ups = @(
+    [pscustomobject]@{ KB = '5000003'; Title = 'Actualización acumulativa'; Date = (Get-Date).AddDays(-12); FromHistory = $true }
+    [pscustomobject]@{ KB = '5000001'; Title = 'Actualización acumulativa'; Date = (Get-Date).AddDays(-40); FromHistory = $true }
+)
+$sus = Find-SuspectUpdate $ups @((Get-Date).AddDays(-10), (Get-Date).AddDays(-3), (Get-Date).AddDays(-1))
+Assert ($sus.Update.KB -eq '5000003' -and $sus.Failures -eq 3) 'Encuentra la actualización instalada justo antes de que empezaran las fallas'
+Assert ($null -eq (Find-SuspectUpdate $ups @((Get-Date).AddDays(-30), (Get-Date).AddDays(-2)))) 'No culpa a una actualización si las fallas empezaron antes'
+$upd = @(Get-InstalledUpdates)
+Write-Host "Actualizaciones instaladas en el equipo de GitHub: $($upd.Count) (la más nueva: KB$($upd[0].KB) $($upd[0].Title))"
+Assert ($upd.Count -ge 1 -and $upd[0].KB -match '^\d{6,8}$') 'Lee las actualizaciones instaladas'
+$real = Get-KbStatus $upd[0].KB
+Write-Host "Microsoft sobre la KB$($upd[0].KB): $(if ($null -eq $real) { 'no se pudo leer la página' } elseif ($real.Known) { 'reconoce problemas: ' + $real.Summary } else { 'sin problemas conocidos' })"
+
 # Minidump de ejemplo: cabecera PAGEDU64 con el código 0x9F
 $dump = Join-Path $env:TEMP 'prueba-minidump.dmp'
 $bytes = New-Object byte[] 0x100
@@ -333,6 +372,22 @@ function Get-Events([hashtable]$Filter, [int]$Max = 500) {
     @()
 }
 function Get-Temperatures { @(84) }
+function Get-InstalledUpdates {
+    @(
+        [pscustomobject]@{ KB = '5066835'; Title = '2026-10 Actualización acumulativa para Windows 11 Version 24H2 para sistemas basados en x64'; Date = $now.Date.AddDays(-11).AddHours(3); FromHistory = $true }
+        [pscustomobject]@{ KB = '5066131'; Title = '2026-10 Actualización acumulativa de .NET Framework 3.5 y 4.8.1 para Windows 11'; Date = $now.Date.AddDays(-11).AddHours(2); FromHistory = $true }
+        [pscustomobject]@{ KB = '5065789'; Title = '2026-09 Actualización acumulativa para Windows 11 Version 24H2 para sistemas basados en x64'; Date = $now.Date.AddDays(-40).AddHours(3); FromHistory = $true }
+        [pscustomobject]@{ KB = '5065381'; Title = '2026-09 Actualización de la pila de servicio para Windows 11 Version 24H2'; Date = $now.Date.AddDays(-40).AddHours(2); FromHistory = $true }
+    )
+}
+function Get-KbStatus([string]$Kb) {
+    if ($Kb -eq '5066835') {
+        return [pscustomobject]@{ Known = $true; Uninstall = $false
+            Summary = 'After installing this update, some devices with Modern Standby might experience a stop error (DRIVER_POWER_STATE_FAILURE) when resuming from sleep. We are working on a resolution.' }
+    }
+    [pscustomobject]@{ Known = $false; Uninstall = $false; Summary = '' }
+}
+function Get-UpdatesPausedUntil { $null }
 function Get-CpuSample([int]$Milliseconds) {
     @(
         [pscustomobject]@{ Name = 'Teams'; Cpu = 38.4; Count = 6; Path = 'C:\Users\Ana\AppData\Local\Microsoft\Teams\current\Teams.exe'; Description = 'Microsoft Teams' }
@@ -405,6 +460,9 @@ Assert ($byId['arranque'].Level -eq 'Amarillo' -and $byId['arranque'].Fix -eq 'a
 Assert ($byId['driver-video'].Level -eq 'Amarillo') "Ejemplo: $($byId['driver-video'].Title)"
 Assert ($byId['inicio-rapido'].Level -eq 'Amarillo') 'Ejemplo: con pantallas azules, el inicio rápido pasa a amarillo'
 Assert ($byId['bateria'].Level -eq 'Verde' -and $byId['antivirus'].Level -eq 'Verde' -and $byId['salud-disco'].Level -eq 'Verde') 'Ejemplo: batería, antivirus y disco en verde'
+Assert ($byId['actualizaciones'].Level -eq 'Rojo' -and $byId['actualizaciones'].Fix -eq 'desinstalar-actualizacion' -and $byId['actualizaciones'].FixArg.KB -eq '5066835') "Ejemplo: $($byId['actualizaciones'].Title) (Microsoft reconoce el problema)"
+$svc = $byId['actualizaciones'].Items | Where-Object { $_.Name -like 'KB5065381*' }
+Assert (-not $svc.Action) 'La pila de servicio no se ofrece desinstalar'
 Export-Report $sample (Join-Path $out 'informe-ejemplo.html')
 
 # Ventana con la laptop de ejemplo (sin el nombre del equipo de GitHub)
@@ -503,6 +561,32 @@ Show-OverlayResult -Kind Ok -Title 'Arreglado' -ShowSupport `
 Save-Shot '7-arreglado'
 Invoke-Click $g.OvClose
 Assert ($g.Overlay.Visibility -eq 'Collapsed') 'El botón «Listo» cierra el resultado'
+
+# Actualizaciones de Windows
+Hide-Overlay
+Update-FindingList 'actualizaciones'
+Wait-Render
+Assert (@($g.DetailItems.ItemsSource | Where-Object { $_.ActionText -eq 'Desinstalar' }).Count -eq 3) 'Cada actualización tiene «Desinstalar» y «Ver en Microsoft» (menos la pila de servicio)'
+Save-Shot '8-actualizaciones'
+
+# Un arreglo largo: porcentaje, tiempo, aviso de que sigue trabajando y botón Cancelar
+Show-Overlay 'Reparar archivos de Windows'
+$script:Progress.Text = 'Paso 1 de 2: reparando la imagen de Windows con DISM (necesita internet)'
+$script:Progress.Long = $true
+$script:Progress.Started = (Get-Date).AddMinutes(-9).AddSeconds(-24)
+$script:Progress.LastProgress = (Get-Date).AddMinutes(-4)
+$script:Progress.Percent = 62.3
+Set-CancelButton $true
+Set-BusyProgress
+Assert ($g.OvPercent.Text -match '62[.,]3 %' -and $g.OvPercent.Text -match 'Lleva 9 min' -and $g.OvPercent.Text -match 'Es normal' -and $g.OvCancel.Visibility -eq 'Visible') "Muestra el avance: $($g.OvPercent.Text -replace "`n", ' / ')"
+Save-Shot 'x-reparando'
+Invoke-Click $g.OvCancel
+Assert ($script:Progress.Cancel -and -not $g.OvCancel.IsEnabled) 'El botón «Cancelar» pide detener el arreglo'
+$script:Progress.Cancel = $false
+$script:Progress.Long = $false
+$script:Progress.Text = ''
+Set-CancelButton $false
+Hide-Overlay
 
 Invoke-Click $g.TabResults
 Assert ($g.PageResults.Visibility -eq 'Visible' -and $g.TabResults.Tag -eq 'sel') 'La pestaña «Diagnóstico» vuelve a los resultados'

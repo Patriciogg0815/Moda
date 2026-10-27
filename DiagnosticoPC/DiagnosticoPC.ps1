@@ -142,6 +142,51 @@ function Invoke-External([string]$FilePath, [string[]]$Arguments, [switch]$Unico
     }
 }
 
+# Ejecuta un programa largo (DISM, SFC, wusa) leyendo su avance mientras corre. La ventana muestra el
+# porcentaje y el tiempo, y se puede cancelar ($script:Progress.Cancel).
+function Invoke-LongExternal([string]$FilePath, [string[]]$Arguments, [switch]$Unicode) {
+    Initialize-Types
+    $lp = New-Object DiagnosticoPC.LiveProcess($FilePath, (ConvertTo-ArgumentString $Arguments), [bool]$Unicode)
+    $script:Progress.Percent = -1
+    $script:Progress.LastProgress = $lp.Started
+    while (-not $lp.WaitForExit(400)) {
+        $script:Progress.Percent = $lp.Percent
+        $script:Progress.LastProgress = $lp.LastProgress
+        if ($script:Progress.Cancel) {
+            $lp.Kill()
+            [void]$lp.WaitForExit(5000)
+            throw 'Cancelado por el usuario.'
+        }
+        Update-UI
+    }
+    # Que los hilos terminen de leer lo último que escribió
+    Start-Sleep -Milliseconds 300
+    $script:Progress.Percent = $lp.Percent
+    [pscustomobject]@{ ExitCode = $lp.ExitCode; Output = $lp.Output.Trim() }
+}
+
+# Explica los códigos de error más comunes de DISM y wusa
+function Get-ExitCodeText([int64]$Code) {
+    $hex = '0x{0:X8}' -f ([int64]$Code -band 0xFFFFFFFF)
+    switch ($hex) {
+        '0x800F081F' { return "no encontró los archivos para reparar ($hex): revisa la conexión a internet y que Windows Update funcione" }
+        '0x800F0906' { return "no pudo descargar los archivos ($hex): revisa la conexión a internet" }
+        '0x800F0907' { return "una directiva de la empresa no le deja descargar los archivos ($hex)" }
+        '0x800F0922' { return "no pudo completar el cambio ($hex): reinicia la PC y vuelve a intentarlo" }
+        '0x80070005' { return "no tuvo permiso ($hex)" }
+        '0x00240006' { return "la actualización no está instalada ($hex)" }
+        '0x00240007' { return "la actualización no está instalada ($hex)" }
+        '0x00000057' { return "Windows no permite desinstalarla de esta forma ($hex)" }
+    }
+    "terminó con el código $hex"
+}
+
+function Format-Elapsed([TimeSpan]$Span) {
+    if ($Span.TotalHours -ge 1) { return '{0} h {1} min' -f [int][Math]::Floor($Span.TotalHours), $Span.Minutes }
+    if ($Span.TotalMinutes -ge 1) { return '{0} min {1} s' -f [int][Math]::Floor($Span.TotalMinutes), $Span.Seconds }
+    "$($Span.Seconds) s"
+}
+
 function Invoke-PowerCfg([string[]]$Arguments) {
     $r = Invoke-External (Join-Path $env:SystemRoot 'System32\powercfg.exe') $Arguments
     if ($r.ExitCode -ne 0) { throw "powercfg $($Arguments -join ' '): $($r.Output)" }
@@ -165,7 +210,7 @@ function Invoke-Background([scriptblock]$Script, [object[]]$Arguments = @()) {
     foreach ($v in 'InitialFunctions', 'AppName', 'AppVersion', 'StoreEdition', 'SupportUrl', 'DataDir', 'TaskName', 'TestMode',
                    'Settings', 'PcInfo', 'RestorePointDone', 'Progress', 'ScriptPath', 'ScriptDir', 'IsExe', 'DefaultSettings',
                    'Areas', 'Checks', 'PowerGuids', 'OpenPowerAdvanced', 'OpenPowerButtons', 'CmdAdminPath', 'ProtectedProcesses',
-                   'DeviceCodes', 'BugChecks', 'CrashFix', 'CauseTexts', 'FixInfo', 'Intervals') {
+                   'DeviceCodes', 'BugChecks', 'CrashFix', 'CauseTexts', 'FixInfo', 'Intervals', 'NeverSeconds', 'WuSettingsPath') {
         $value = (Get-Variable -Name $v -Scope Script -ErrorAction SilentlyContinue).Value
         $iss.Variables.Add((New-Object Management.Automation.Runspaces.SessionStateVariableEntry($v, $value, '')))
     }
@@ -242,8 +287,11 @@ function Format-Size([double]$Bytes) {
     '{0:N0} KB' -f ($Bytes / 1KB)
 }
 
-function Format-Minutes([int]$Seconds) {
-    if ($Seconds -le 0) { return 'nunca' }
+# Windows guarda "Nunca" como 0 o como un número enorme (por ejemplo 4294967295 segundos)
+$script:NeverSeconds = 30 * 86400
+
+function Format-Minutes([int64]$Seconds) {
+    if ($Seconds -le 0 -or $Seconds -ge $script:NeverSeconds) { return 'nunca' }
     $m = [int][Math]::Round($Seconds / 60)
     if ($m -lt 60) { return "$m min" }
     $h = [Math]::Floor($m / 60); $r = $m % 60
@@ -454,6 +502,78 @@ namespace DiagnosticoPC
         }
     }
 
+    // Programa largo (DISM, SFC, wusa) que se lee mientras corre: guarda el último porcentaje que muestra
+    // y cuándo hubo actividad, para que la ventana pueda decir si sigue avanzando
+    public class LiveProcess
+    {
+        private readonly System.Diagnostics.Process _p;
+        private readonly System.Text.StringBuilder _all = new System.Text.StringBuilder();
+        private readonly object _gate = new object();
+        private static readonly System.Text.RegularExpressions.Regex PercentRx =
+            new System.Text.RegularExpressions.Regex(@"(\d{1,3}(?:[.,]\d+)?)\s?%");
+        public double Percent = -1;
+        public DateTime Started;
+        public DateTime LastProgress;
+
+        public LiveProcess(string file, string arguments, bool unicode)
+        {
+            System.Diagnostics.ProcessStartInfo psi = new System.Diagnostics.ProcessStartInfo(file, arguments);
+            System.Text.Encoding enc = unicode ? System.Text.Encoding.Unicode
+                : System.Text.Encoding.GetEncoding(System.Globalization.CultureInfo.CurrentCulture.TextInfo.OEMCodePage);
+            psi.UseShellExecute = false;
+            psi.CreateNoWindow = true;
+            psi.RedirectStandardOutput = true;
+            psi.RedirectStandardError = true;
+            psi.StandardOutputEncoding = enc;
+            psi.StandardErrorEncoding = enc;
+            Started = DateTime.Now;
+            LastProgress = Started;
+            _p = System.Diagnostics.Process.Start(psi);
+            StartPump(_p.StandardOutput);
+            StartPump(_p.StandardError);
+        }
+
+        private void StartPump(System.IO.StreamReader reader)
+        {
+            System.Threading.Thread t = new System.Threading.Thread(delegate ()
+            {
+                char[] buf = new char[256];
+                int n;
+                try
+                {
+                    while ((n = reader.Read(buf, 0, buf.Length)) > 0)
+                    {
+                        lock (_gate)
+                        {
+                            _all.Append(buf, 0, n);
+                            int from = Math.Max(0, _all.Length - 300);
+                            System.Text.RegularExpressions.MatchCollection m = PercentRx.Matches(_all.ToString(from, _all.Length - from));
+                            if (m.Count > 0)
+                            {
+                                double v;
+                                if (Double.TryParse(m[m.Count - 1].Groups[1].Value.Replace(',', '.'),
+                                    System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out v)
+                                    && v <= 100 && v != Percent)
+                                {
+                                    Percent = v;
+                                    LastProgress = DateTime.Now;
+                                }
+                            }
+                        }
+                    }
+                }
+                catch { }
+            });
+            t.IsBackground = true;
+            t.Start();
+        }
+
+        public bool WaitForExit(int milliseconds) { return _p.WaitForExit(milliseconds); }
+        public int ExitCode { get { return _p.ExitCode; } }
+        public string Output { get { lock (_gate) { return _all.ToString().Replace("\0", ""); } } }
+        public void Kill() { try { if (!_p.HasExited) _p.Kill(); } catch { } }
+    }
+
     public static class NativeMethods
     {
         [DllImport("user32.dll")]
@@ -533,6 +653,7 @@ $script:Checks = @(
     @{ Name = 'Test-CrashDumpSettings'; Label = 'Registro de pantallas azules' }
     @{ Name = 'Test-RegistryTampering'; Label = 'Registro de Windows' }
     @{ Name = 'Test-SystemFiles';       Label = 'Archivos de Windows' }
+    @{ Name = 'Test-WindowsUpdates';    Label = 'Actualizaciones de Windows' }
     @{ Name = 'Test-DiskSpace';         Label = 'Espacio en disco' }
     @{ Name = 'Test-DiskHealth';        Label = 'Salud del disco' }
     @{ Name = 'Test-Battery';           Label = 'Batería' }
@@ -597,7 +718,7 @@ function Get-PcInfo {
     if ([int]$os.BuildNumber -ge 22000) { $osName = $osName -replace 'Windows 10', 'Windows 11' }
     [pscustomobject]@{
         Manufacturer = "$($cs.Manufacturer)".Trim()
-        Model        = "$($cs.Model)".Trim()
+        Model        = Remove-BrandPrefix "$($cs.Manufacturer)".Trim() "$($cs.Model)".Trim()
         OS           = (@($osName, $display) | Where-Object { $_ }) -join ' '
         Build        = [int]$os.BuildNumber
         Cpu          = ("$($cpu.Name)" -replace '\(R\)|\(TM\)|CPU', '' -replace '\s+', ' ').Trim()
@@ -606,6 +727,12 @@ function Get-PcInfo {
         IsVirtual    = "$($cs.Model) $($cs.Manufacturer)" -match 'Virtual|VMware|KVM|QEMU|Xen|HVM domU|Parallels'
         LastBoot     = $os.LastBootUpTime
     }
+}
+
+# "HP" + "HP ZBook Power..." → "ZBook Power..." (para no mostrar "HP HP ZBook")
+function Remove-BrandPrefix([string]$Brand, [string]$Model) {
+    if ($Brand -and $Model.StartsWith("$Brand ", [StringComparison]::OrdinalIgnoreCase)) { return $Model.Substring($Brand.Length).Trim() }
+    $Model
 }
 
 function Get-CachedPcInfo {
@@ -728,8 +855,8 @@ function Test-Hibernation {
             -Detail "Cuando cierras la tapa, la PC queda suspendida, pero nunca pasa a hibernar. $info`n`n$why" `
             -Steps $steps -Fix 'activar-hibernacion' -FixText 'Activar la hibernación'
     }
-    $dc = [int]$hib.Dc
-    if ($dc -le 0) {
+    $dc = [int64]$hib.Dc
+    if ($dc -le 0 -or $dc -ge $script:NeverSeconds) {
         $level = if ($modern) { 'Rojo' } else { 'Amarillo' }
         return New-Finding -Id 'hibernacion' -Area 'Energía' -Level $level -Title 'Con batería, la PC nunca pasa a hibernar' `
             -Summary 'Suspendida puede quedarse encendida por dentro durante horas' `
@@ -1368,7 +1495,11 @@ function Test-DeviceProblems {
 
 function Test-DisplayDriver {
     $pc = Get-CachedPcInfo
-    $vcs = @(Get-CimInstance Win32_VideoController)
+    $all = @(Get-CimInstance Win32_VideoController)
+    # Solo las tarjetas reales (PCI): se dejan fuera las pantallas virtuales, como «MS Idd Device»
+    # o las de escritorio remoto. En una máquina virtual no hay PCI: se revisan todas.
+    $vcs = @($all | Where-Object { "$($_.PNPDeviceID)" -like 'PCI\*' })
+    if (-not $vcs.Count) { $vcs = $all }
     if (-not $vcs.Count) { return }
     $basic = @($vcs | Where-Object { $_.InfFilename -eq 'display.inf' -or $_.Name -match 'Basic Display|Basic Render|b.sico de (pantalla|Microsoft)' })
     $items = foreach ($vc in $vcs) {
@@ -1651,6 +1782,244 @@ function Test-BlueScreens {
             -Summary 'En los últimos 30 días' -Detail 'La PC no se apagó sin cerrarse bien en los últimos 30 días.' -Steps $suddenSteps
     }
     $result
+}
+
+#endregion
+
+#region Revisiones: actualizaciones de Windows
+
+$script:WuSettingsPath = 'HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings'
+
+# Actualizaciones instaladas que tienen número KB, de la más nueva a la más vieja
+function Get-InstalledUpdates {
+    $list = @{}
+    $names = @{ 'Security Update' = 'Actualización de seguridad'; 'Update' = 'Actualización'; 'Hotfix' = 'Corrección' }
+    try {
+        foreach ($h in Get-HotFix -ErrorAction Stop) {
+            $kb = "$($h.HotFixID)" -replace '\D', ''
+            if (-not $kb) { continue }
+            $date = $null
+            try { if ($h.InstalledOn) { $date = [datetime]$h.InstalledOn } } catch { }
+            $title = if ($names.ContainsKey("$($h.Description)")) { $names["$($h.Description)"] } else { "$($h.Description)" }
+            $list[$kb] = [pscustomobject]@{ KB = $kb; Title = $title; Date = $date; FromHistory = $false }
+        }
+    } catch { }
+    # El historial de Windows Update tiene el nombre completo y la hora exacta
+    try {
+        $searcher = (New-Object -ComObject Microsoft.Update.Session).CreateUpdateSearcher()
+        $count = $searcher.GetTotalHistoryCount()
+        if ($count -gt 0) {
+            foreach ($e in $searcher.QueryHistory(0, [Math]::Min($count, 200))) {
+                # Operation 1 = instalación; ResultCode 2/3 = terminó bien
+                if ($e.Operation -ne 1 -or $e.ResultCode -notin 2, 3) { continue }
+                if ("$($e.Title)" -notmatch 'KB(\d{6,8})') { continue }
+                $u = $list[$Matches[1]]
+                if ($u -and -not $u.FromHistory) {
+                    $u.Title = "$($e.Title)" -replace '\s*\(KB\d+\)', ''
+                    $u.FromHistory = $true
+                    if ($e.Date) { $u.Date = ([datetime]$e.Date).ToLocalTime() }
+                }
+            }
+        }
+    } catch { }
+    @($list.Values | Sort-Object @{ Expression = { if ($_.Date) { $_.Date } else { [datetime]::MinValue } } } -Descending)
+}
+
+function Get-UpdateKind($Update) {
+    $t = "$($Update.Title)"
+    if ($t -match 'Servicing Stack|pila de servicio') { return 'Pila de servicio' }
+    if ($t -match 'Cumulative|acumulativa') { return 'Acumulativa' }
+    if ($t -match '\.NET') { return '.NET' }
+    if ($t -match 'Security|seguridad') { return 'Seguridad' }
+    'Actualización'
+}
+
+function Get-WebText([string]$Url) {
+    $ProgressPreference = 'SilentlyContinue'
+    try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch { }
+    (Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 15 -Headers @{ 'Accept-Language' = 'en-US' } `
+        -UserAgent 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) DiagnosticoPC').Content
+}
+
+function ConvertFrom-HtmlToText([string]$Html) {
+    $t = [regex]::Replace($Html, '(?is)<(script|style|noscript)\b.*?</\1>', ' ')
+    $t = [regex]::Replace($t, '<[^>]+>', ' ')
+    ([System.Net.WebUtility]::HtmlDecode($t) -replace '\s+', ' ').Trim()
+}
+
+# Lee la sección "Known issues in this update" de la página de una KB de Microsoft.
+# Devuelve $null si la página no tiene esa sección (formato desconocido).
+function Read-KbPageStatus([string]$Html) {
+    $t = ConvertFrom-HtmlToText $Html
+    $head = 'Known issues in this update'
+    $i = $t.IndexOf($head, [StringComparison]::OrdinalIgnoreCase)
+    if ($i -lt 0) { return $null }
+    $seg = $t.Substring($i + $head.Length)
+    foreach ($stop in 'How to get this update', 'File information', 'File list', 'References') {
+        $j = $seg.IndexOf($stop, [StringComparison]::OrdinalIgnoreCase)
+        if ($j -gt 0) { $seg = $seg.Substring(0, $j) }
+    }
+    $seg = $seg.Trim()
+    $none = $seg -match 'not (currently )?aware of any (known )?issues|no known issues'
+    $uninstall = (-not $none) -and ($seg -match '(uninstall|remove|roll(ing)? back) (this|the|that) update')
+    $summary = ($seg -replace '^(Symptoms?|Applies to)\b.*?\b(Workaround|Next steps?)\s+', '').Trim()
+    [pscustomobject]@{ Known = -not $none; Uninstall = $uninstall; Summary = Limit-Text $summary 350 }
+}
+
+# Qué dice Microsoft de una KB (necesita internet). $null si no se pudo consultar.
+function Get-KbStatus([string]$Kb) {
+    try { Read-KbPageStatus (Get-WebText "https://support.microsoft.com/en-us/help/$Kb") } catch { $null }
+}
+
+function Get-KbUrl([string]$Kb) { "https://support.microsoft.com/es-es/help/$Kb" }
+
+# Fecha hasta la que Windows Update está en pausa ($null si no lo está)
+function Get-UpdatesPausedUntil {
+    $v = Get-RegValue $script:WuSettingsPath 'PauseUpdatesExpiryTime'
+    $d = [datetime]::MinValue
+    if ($v -and [datetime]::TryParse("$v", [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AdjustToUniversal, [ref]$d)) {
+        $local = $d.ToLocalTime()
+        if ($local -gt (Get-Date)) { return $local }
+    }
+    $null
+}
+
+# La actualización instalada justo antes de que empezaran las fallas (pantallas azules o apagones)
+function Find-SuspectUpdate($Updates, $FailureTimes) {
+    $now = Get-Date
+    $times = @($FailureTimes | Where-Object { $_ -and $_ -ge $now.AddDays(-60) } | Sort-Object)
+    if ($times.Count -lt 2) { return $null }
+    $first = $times[0]
+    $candidates = @($Updates | Where-Object { $_.Date -and $_.Date -le $first -and $_.Date -ge $first.AddDays(-21) -and (Get-UpdateKind $_) -ne 'Pila de servicio' } |
+        Sort-Object Date -Descending)
+    if (-not $candidates.Count) { return $null }
+    [pscustomobject]@{ Update = $candidates[0]; FirstFailure = $first; Failures = $times.Count }
+}
+
+function Get-UpdateSteps($Update) {
+    $kb = if ($Update) { $Update.KB } else { $null }
+    $steps = @()
+    if ($kb) {
+        $steps += New-Step -Title 'Mira qué dice Microsoft' -Button "Abrir la página de la KB$kb" -Open (Get-KbUrl $kb) `
+            -Text 'En la página de la actualización, la sección «Problemas conocidos de esta actualización» dice si Microsoft sabe de fallas y cómo evitarlas. Si Microsoft dice que no hay problemas conocidos, la causa puede ser otra.'
+    }
+    $steps += New-Step -Title 'Desinstala la actualización' -Path 'Configuración → Windows Update → Historial de actualizaciones → Desinstalar actualizaciones' `
+        -Text $(if ($kb) { "Busca la KB$kb en la lista, presiona «Desinstalar» y reinicia la PC." } else { 'Busca la actualización en la lista, presiona «Desinstalar» y reinicia la PC.' }) `
+        -Button $(if ($kb) { 'Hacerlo por mí' } else { 'Abrir el historial de actualizaciones' }) `
+        -Fix $(if ($kb) { 'desinstalar-actualizacion' } else { $null }) -FixArg $Update -Open $(if ($kb) { $null } else { 'ms-settings:windowsupdate-history' })
+    $steps += New-Step -Title 'Pausa las actualizaciones' -Path 'Configuración → Windows Update → Pausar actualizaciones' `
+        -Text 'Así Windows no la vuelve a instalar enseguida. Cuando Microsoft publique el arreglo, presiona «Reanudar actualizaciones».' `
+        -Button 'Pausar 2 semanas' -Fix 'pausar-actualizaciones'
+    $steps += New-Step -Title 'Si Windows ya no arranca bien' -Path 'Configuración → Sistema → Recuperación → Inicio avanzado → Reiniciar ahora → Solucionar problemas → Opciones avanzadas → Desinstalar actualizaciones' `
+        -Text 'Desde la pantalla azul de recuperación también se puede quitar la última actualización. Si la PC no enciende, Windows muestra esa pantalla sola después de dos o tres intentos fallidos.'
+    $steps += New-Step -Title 'Cuando ya esté arreglado' -Path 'Configuración → Windows Update' `
+        -Text 'Reanuda las actualizaciones: traen arreglos de seguridad importantes. Si la falla vuelve con la misma actualización, repite estos pasos y espera el arreglo de Microsoft.' `
+        -Button 'Abrir Windows Update' -Open 'ms-settings:windowsupdate'
+    $steps
+}
+
+function Test-WindowsUpdates {
+    $updates = @(Get-InstalledUpdates)
+    $paused = Get-UpdatesPausedUntil
+    $pausedText = if ($paused) { " Windows Update está en pausa hasta el $(Format-Date $paused)." } else { '' }
+    if (-not $updates.Count) {
+        return New-Finding -Id 'actualizaciones' -Area 'Sistema' -Level Info -Title 'No se encontraron actualizaciones para revisar' `
+            -Summary 'Windows no informó actualizaciones instaladas' -Detail "Windows no entregó la lista de actualizaciones instaladas.$pausedText" -Steps (Get-UpdateSteps $null)
+    }
+    $now = Get-Date
+    $recent = @($updates | Where-Object { $_.Date -and $_.Date -ge $now.AddDays(-60) })
+    $crashes = Get-Crashes 90
+    $suspect = Find-SuspectUpdate $updates (@($crashes.Crashes | ForEach-Object { $_.Time }) + @($crashes.Sudden))
+
+    # Qué dice Microsoft de las más recientes (y de la sospechosa)
+    $status = @{}
+    $toCheck = @()
+    if ($suspect) { $toCheck += $suspect.Update }
+    $toCheck += @($recent | Select-Object -First 3)
+    foreach ($u in $toCheck) {
+        if (-not $status.ContainsKey($u.KB)) {
+            $script:Progress.Text = "Actualizaciones de Windows: qué dice Microsoft de la KB$($u.KB)"
+            $status[$u.KB] = Get-KbStatus $u.KB
+        }
+    }
+
+    $items = foreach ($u in $updates | Select-Object -First 12) {
+        $kind = Get-UpdateKind $u
+        $parts = @()
+        $parts += if ($u.Date) { "Instalada el $(Format-Date $u.Date)" } else { 'Fecha de instalación desconocida' }
+        $parts += $kind
+        if ($status.ContainsKey($u.KB)) {
+            $st = $status[$u.KB]
+            $parts += if ($null -eq $st) { 'No se pudo consultar a Microsoft' }
+                      elseif ($st.Uninstall) { 'Microsoft indica desinstalarla' }
+                      elseif ($st.Known) { 'Microsoft reconoce problemas' }
+                      else { 'Microsoft: sin problemas conocidos' }
+        }
+        if ($suspect -and $suspect.Update.KB -eq $u.KB) { $parts += 'Las fallas empezaron después de instalarla' }
+        $name = "KB$($u.KB) · $(Limit-Text $u.Title 80)"
+        if ($kind -eq 'Pila de servicio') {
+            New-FindingItem -Name $name -Detail (($parts + 'Windows no permite desinstalarla') -join ' · ')
+        } else {
+            New-FindingItem -Name $name -Detail ($parts -join ' · ') -Action 'desinstalar-actualizacion' -ActionText 'Desinstalar' `
+                -Action2 'ver-kb' -Action2Text 'Ver en Microsoft' -Arg $u
+        }
+    }
+
+    $msUninstall = @($toCheck | Where-Object { $status[$_.KB] -and $status[$_.KB].Uninstall }) | Select-Object -First 1
+    $msKnown = @($toCheck | Where-Object { $status[$_.KB] -and $status[$_.KB].Known }) | Select-Object -First 1
+    $offline = @($toCheck | Where-Object { $null -eq $status[$_.KB] }).Count -eq $toCheck.Count -and $toCheck.Count
+    $honest = 'Ojo: esto es una sugerencia, no una certeza. Microsoft casi nunca pide desinstalar una actualización; lo normal es que publique el problema y lo corrija en la siguiente. Desinstalarla deja la PC sin sus arreglos de seguridad hasta que se vuelva a instalar.'
+    $fixFor = { param($u) @{ Fix = 'desinstalar-actualizacion'; FixText = "Desinstalar la KB$($u.KB)"; FixArg = $u; Steps = (Get-UpdateSteps $u); Items = $items } }
+
+    if ($msUninstall) {
+        $st = $status[$msUninstall.KB]
+        $extra = & $fixFor $msUninstall
+        return New-Finding -Id 'actualizaciones' -Area 'Sistema' -Level Rojo -Title "Microsoft indica desinstalar la KB$($msUninstall.KB)" `
+            -Summary (Limit-Text $msUninstall.Title 90) `
+            -Detail "En la página de esta actualización, Microsoft reconoce un problema y menciona desinstalarla como solución. Lo que dice Microsoft (en inglés): «$($st.Summary)»`n`n$honest$pausedText" @extra
+    }
+    if ($suspect) {
+        $u = $suspect.Update
+        $st = $status[$u.KB]
+        $extra = & $fixFor $u
+        $level = if ($st -and $st.Known) { 'Rojo' } else { 'Amarillo' }
+        $ms = if ($null -eq $st) { 'No se pudo consultar a Microsoft (sin internet).' }
+              elseif ($st.Known) { "Además, Microsoft reconoce problemas con esta actualización (en inglés): «$($st.Summary)»" }
+              else { 'Microsoft no tiene problemas conocidos publicados para esta actualización, así que la causa puede ser otra (por ejemplo, un driver).' }
+        return New-Finding -Id 'actualizaciones' -Area 'Sistema' -Level $level -Title "Las fallas empezaron después de la KB$($u.KB)" `
+            -Summary "Instalada el $(Format-Date $u.Date) · $(Get-Plural $suspect.Failures 'falla' 'fallas') desde entonces" `
+            -Detail "La PC no tuvo pantallas azules ni apagones en los días anteriores, y empezaron el $(Format-Date $suspect.FirstFailure), después de instalar la actualización KB$($u.KB) ($($u.Title)). Desinstalarla es una forma de comprobar si es la causa.`n`n$ms`n`n$honest$pausedText" @extra
+    }
+    if ($msKnown) {
+        $st = $status[$msKnown.KB]
+        $extra = & $fixFor $msKnown
+        return New-Finding -Id 'actualizaciones' -Area 'Sistema' -Level Amarillo -Title "Microsoft reconoce problemas con la KB$($msKnown.KB)" `
+            -Summary (Limit-Text $msKnown.Title 90) `
+            -Detail "Microsoft publicó problemas conocidos de esta actualización (en inglés): «$($st.Summary)»`n`nSi notas justo esa falla, revisa en la página de Microsoft si hay una solución o si conviene desinstalarla. Si no notas nada raro, no hace falta hacer nada.`n`n$honest$pausedText" @extra
+    }
+    $last = $updates[0]
+    $lastText = if ($last.Date) { "Última: KB$($last.KB) del $($last.Date.ToString('dd/MM/yyyy'))" } else { "Última: KB$($last.KB)" }
+    $detail = if ($offline) { 'No se pudo consultar a Microsoft (sin internet), pero las pantallas azules y apagones no coinciden con ninguna actualización.' }
+              else { 'Microsoft no tiene problemas conocidos publicados para las actualizaciones recientes, y las fallas de la PC no coinciden con ninguna actualización.' }
+    New-Finding -Id 'actualizaciones' -Area 'Sistema' -Level Verde -Title 'Actualizaciones sin problemas conocidos' `
+        -Summary "$lastText$(if ($paused) { ' · en pausa' })" -Detail "$detail Si una actualización te da problemas, puedes desinstalarla desde la lista.$pausedText" `
+        -Steps (Get-UpdateSteps $null) -Items $items
+}
+
+# Busca el paquete de Windows de una KB (en Windows 11 la acumulativa se quita con DISM, no con wusa)
+function Find-UpdatePackage([string]$Kb) {
+    $pkgs = @(Get-WindowsPackage -Online -ErrorAction Stop | Where-Object { "$($_.PackageState)" -eq 'Installed' })
+    $direct = $pkgs | Where-Object { $_.PackageName -match "KB$Kb\b" } | Select-Object -First 1
+    if ($direct) { return $direct.PackageName }
+    $candidates = $pkgs | Where-Object { $_.PackageName -like 'Package_for_RollupFix*' -or "$($_.ReleaseType)" -in 'SecurityUpdate', 'Update', 'Hotfix' } |
+        Sort-Object InstallTime -Descending | Select-Object -First 15
+    foreach ($p in $candidates) {
+        try {
+            $d = Get-WindowsPackage -Online -PackageName $p.PackageName -ErrorAction Stop
+            if ("$($d.Description) $($d.SupportInformation) $($d.DisplayName)" -match "KB$Kb\b|kbid=$Kb\b") { return $p.PackageName }
+        } catch { }
+    }
+    $null
 }
 
 #endregion
@@ -1954,11 +2323,18 @@ $script:FixInfo = @{
     'buscar-cambios'           = @{ Changes = $false; Text = 'Volver a detectar todo el hardware para que Windows instale los drivers que encuentre.' }
     'reinstalar-dispositivo'   = @{ Changes = $false; Text = 'Desinstalar este dispositivo y volver a detectarlo, para que Windows reinstale su driver.' }
     'habilitar-dispositivo'    = @{ Changes = $false; Text = 'Volver a activar este dispositivo.' }
+    'desinstalar-actualizacion' = @{ Changes = $true; Long = $true; Text = 'Desinstalar esta actualización de Windows. Después hay que reiniciar la PC. Mientras no esté, la PC no tiene sus arreglos de seguridad; Windows Update la volverá a ofrecer más adelante.' }
+    'pausar-actualizaciones'   = @{ Changes = $true; Text = 'Pausar Windows Update por 2 semanas, para que no vuelva a instalar enseguida la actualización que dio problemas. Se puede reanudar cuando quieras.' }
+    'ver-kb'                   = @{ Changes = $false; Text = '' }
 }
 
-function Get-FixDescription([string]$Id) {
+function Get-FixDescription([string]$Id, $Arg) {
     $i = $script:FixInfo[$Id]
-    if ($i) { $i.Text } else { '' }
+    if (-not $i) { return '' }
+    if ($Id -eq 'desinstalar-actualizacion' -and $Arg -and $Arg.KB) {
+        return "Desinstalar la actualización KB$($Arg.KB) ($($Arg.Title)). Después hay que reiniciar la PC. Mientras no esté, la PC no tiene sus arreglos de seguridad; Windows Update la volverá a ofrecer más adelante."
+    }
+    $i.Text
 }
 
 function Test-FixChanges([string]$Id) { [bool]($script:FixInfo[$Id] -and $script:FixInfo[$Id].Changes) }
@@ -1969,6 +2345,7 @@ function Invoke-Fix([string]$Id, $Arg) {
     $undo = @()
     $msg = ''
     $desc = ''
+    $warn = $false
     switch ($Id) {
         'activar-hibernacion' {
             $caps = Get-PowerCapabilities
@@ -1979,7 +2356,7 @@ function Invoke-Fix([string]$Id, $Arg) {
             }
             $hib = Get-PowerValue $g.SubSleep $g.HibernateIdle
             $dc = if ($hib.Dc -le 0 -or $hib.Dc -gt 3600) { 3600 } else { $null }
-            $ac = if ($hib.Ac -le 0 -and $caps -and $caps.AoAc) { 10800 } else { $null }
+            $ac = if (($hib.Ac -le 0 -or $hib.Ac -ge $script:NeverSeconds) -and $caps -and $caps.AoAc) { 10800 } else { $null }
             if ($null -ne $dc -or $null -ne $ac) { $undo += Set-PowerValue $g.SubSleep $g.HibernateIdle $ac $dc }
             $undo += Set-RegValue 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FlyoutMenuSettings' 'ShowHibernateOption' 1
             $desc = 'Hibernación activada (con batería, después de 1 hora en suspensión)'
@@ -2059,18 +2436,21 @@ function Invoke-Fix([string]$Id, $Arg) {
             $msg = "Listo. Se cerró «$($Arg.Label)»."
         }
         'reparar-windows' {
-            $script:Progress.Text = 'Paso 1 de 2: reparando la imagen de Windows con DISM (necesita internet)...'
-            $dism = Invoke-External (Join-Path $env:SystemRoot 'System32\dism.exe') @('/Online', '/Cleanup-Image', '/RestoreHealth')
-            $script:Progress.Text = 'Paso 2 de 2: revisando todos los archivos de Windows con SFC...'
+            $script:Progress.Text = 'Paso 1 de 2: reparando la imagen de Windows con DISM (necesita internet)'
+            $dism = Invoke-LongExternal (Join-Path $env:SystemRoot 'System32\dism.exe') @('/Online', '/Cleanup-Image', '/RestoreHealth')
+            $script:Progress.Text = 'Paso 2 de 2: revisando todos los archivos de Windows con SFC'
             $start = Get-Date
-            $sfc = Invoke-External (Join-Path $env:SystemRoot 'System32\sfc.exe') @('/scannow') -Unicode
+            $sfc = Invoke-LongExternal (Join-Path $env:SystemRoot 'System32\sfc.exe') @('/scannow') -Unicode
             $res = Get-SfcResult $start
             $desc = 'Reparación de archivos de Windows (DISM + SFC)'
-            $dismText = if ($dism.ExitCode -eq 0) { 'DISM terminó bien.' } else { "DISM no pudo terminar (código $($dism.ExitCode)); revisa la conexión a internet." }
-            $sfcText = if ($res.CannotRepair) { "SFC encontró $($res.CannotRepair) archivos que no pudo reparar: si las fallas siguen, usa «Restablecer este equipo» manteniendo tus archivos." }
-                elseif ($res.Repaired) { "SFC reparó $($res.Repaired) archivos dañados." }
-                else { 'SFC no encontró archivos dañados.' }
-            $msg = "Terminó la reparación. $dismText $sfcText Reinicia la PC para terminar."
+            $dismOk = $dism.ExitCode -in 0, 3010
+            $dismText = if ($dismOk) { 'Paso 1 (DISM): terminó bien.' } else { "Paso 1 (DISM): $(Get-ExitCodeText $dism.ExitCode)." }
+            $sfcText = if ($res.CannotRepair) { "Paso 2 (SFC): encontró $($res.CannotRepair) archivos que no pudo reparar. Si las fallas siguen, usa «Restablecer este equipo» manteniendo tus archivos." }
+                elseif ($res.Repaired) { "Paso 2 (SFC): reparó $($res.Repaired) archivos dañados." }
+                elseif ($sfc.ExitCode -ne 0 -and $sfc.Output -notmatch '100\s?%') { "Paso 2 (SFC): no pudo terminar la revisión (código $($sfc.ExitCode)). Reinicia la PC y vuelve a intentarlo." }
+                else { 'Paso 2 (SFC): no encontró archivos dañados.' }
+            if (-not $dismOk -or $res.CannotRepair) { $warn = $true }
+            $msg = "Terminó la reparación.`n`n$dismText`n$sfcText`n`nReinicia la PC para terminar."
         }
         'liberar-espacio' {
             $before = (Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$env:SystemDrive'").FreeSpace
@@ -2129,9 +2509,47 @@ function Invoke-Fix([string]$Id, $Arg) {
         }
         'buscar-driver' { Open-Target 'ms-settings:windowsupdate-optionalupdates'; $msg = 'Se abrió Windows Update. Entra a «Actualizaciones opcionales» → «Actualizaciones de controladores». Si no aparece nada, usa el paso a paso para descargarlo de la página del fabricante.' }
         'abrir-seguridad' { Open-Target 'windowsdefender://threat'; $msg = 'Se abrió Seguridad de Windows.' }
+        'ver-kb' {
+            Open-Target (Get-KbUrl $Arg.KB)
+            $msg = "Se abrió la página de la KB$($Arg.KB) en el navegador. Busca la sección «Problemas conocidos de esta actualización»."
+        }
+        'desinstalar-actualizacion' {
+            $kb = "$($Arg.KB)" -replace '\D', ''
+            if (-not $kb) { throw 'No se sabe qué actualización desinstalar.' }
+            $script:Progress.Text = "Desinstalando la actualización KB$kb (puede tardar varios minutos)"
+            $r = Invoke-LongExternal (Join-Path $env:SystemRoot 'System32\wusa.exe') @('/uninstall', "/kb:$kb", '/quiet', '/norestart')
+            $code = [int64]$r.ExitCode
+            if ($code -in 2359302, 2359303) { throw "La KB$kb ya no está instalada." }
+            if ($code -notin 0, 3010) {
+                # En Windows 11 la acumulativa viene junto con la pila de servicio: wusa no la quita, DISM sí
+                $script:Progress.Text = "Buscando el paquete de la KB$kb (Windows 11 la instala junto con otras)"
+                $pkg = Find-UpdatePackage $kb
+                if (-not $pkg) {
+                    throw "Windows no deja desinstalar la KB$kb desde aquí ($(Get-ExitCodeText $code)). Prueba en Configuración → Windows Update → Historial de actualizaciones → Desinstalar actualizaciones."
+                }
+                $script:Progress.Text = "Desinstalando la KB$kb con DISM (puede tardar varios minutos)"
+                $r = Invoke-LongExternal (Join-Path $env:SystemRoot 'System32\dism.exe') @('/Online', '/Remove-Package', "/PackageName:$pkg", '/NoRestart')
+                if ([int64]$r.ExitCode -notin 0, 3010) { throw "DISM no pudo desinstalarla: $(Get-ExitCodeText $r.ExitCode)." }
+            }
+            $desc = "Actualización desinstalada: KB$kb"
+            $msg = "Listo. Se desinstaló la actualización KB$kb. Reinicia la PC para terminar.`n`nPara que Windows no la vuelva a instalar enseguida, usa «Pausar 2 semanas» (en el paso a paso). Si la necesitas otra vez, se instala desde Windows Update."
+        }
+        'pausar-actualizaciones' {
+            $start = (Get-Date).ToUniversalTime()
+            $end = $start.AddDays(14)
+            $fmt = 'yyyy-MM-ddTHH:mm:ssZ'
+            $inv = [Globalization.CultureInfo]::InvariantCulture
+            foreach ($pair in @(@('PauseUpdatesExpiryTime', $end), @('PauseQualityUpdatesStartTime', $start), @('PauseQualityUpdatesEndTime', $end),
+                                @('PauseFeatureUpdatesStartTime', $start), @('PauseFeatureUpdatesEndTime', $end))) {
+                $undo += Set-RegValue $script:WuSettingsPath $pair[0] $pair[1].ToString($fmt, $inv) 'String'
+            }
+            $until = $end.ToLocalTime().ToString('dd/MM/yyyy')
+            $desc = "Windows Update en pausa hasta el $until"
+            $msg = "Listo. Windows Update queda en pausa hasta el $until. Para reanudarlo antes: Configuración → Windows Update → «Reanudar actualizaciones», o «Deshacer» en Herramientas y cambios."
+        }
         default { throw "Arreglo desconocido: $Id" }
     }
-    @{ Message = $msg; Undo = @($undo | Where-Object { $_ }); Description = $desc }
+    @{ Message = $msg; Undo = @($undo | Where-Object { $_ }); Description = $desc; Warn = $warn }
 }
 
 # Lee el CBS.log para saber qué hizo SFC desde que empezó
@@ -2952,7 +3370,9 @@ $script:Xaml = @'
             <TextBlock x:Name="OvTitle" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap"/>
             <TextBlock x:Name="OvDetail" Margin="0,8,0,14" FontSize="15" Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap"/>
             <ProgressBar x:Name="Progress" Height="8" IsIndeterminate="True" Foreground="{StaticResource Accent}" Background="#E8E8EE" BorderThickness="0"/>
-            <TextBlock x:Name="OvPercent" Margin="0,8,0,0" FontSize="13" Foreground="{StaticResource TextSecondary}"/>
+            <TextBlock x:Name="OvPercent" Margin="0,10,0,0" FontSize="14" LineHeight="21" Foreground="#333333" TextWrapping="Wrap"/>
+            <Button x:Name="OvCancel" Style="{StaticResource SubtleButton}" Content="Cancelar" HorizontalAlignment="Right" Margin="0,16,0,0"
+                    Padding="22,9" Visibility="Collapsed"/>
           </StackPanel>
           <StackPanel x:Name="OvDone" Visibility="Collapsed">
             <Border x:Name="OvIconBg" Width="60" Height="60" CornerRadius="30" HorizontalAlignment="Left">
@@ -3143,8 +3563,28 @@ function Show-Overlay([string]$Title, [string]$Detail = 'Un momento, por favor..
     $g.OvBusy.Visibility = 'Visible'
     $g.OvDone.Visibility = 'Collapsed'
     $g.OvButtons.Visibility = 'Collapsed'
+    $g.OvCancel.Visibility = 'Collapsed'
     $g.Overlay.Visibility = 'Visible'
     Update-UI
+}
+
+# Botón "Cancelar" mientras corre un arreglo largo (en la ventana principal o en la del paso a paso)
+function Set-CancelButton([bool]$On) {
+    $g = $script:Gui
+    $g.OvCancel.IsEnabled = $true
+    $g.OvCancel.Visibility = if ($On) { 'Visible' } else { 'Collapsed' }
+    $w = $script:Wizard
+    if ($w -and $w.Window.IsVisible) {
+        $w.WzClose.Content = if ($On) { 'Cancelar' } else { 'Cerrar' }
+        $w.WzClose.IsEnabled = $On
+    }
+}
+
+function Request-Cancel {
+    $script:Progress.Cancel = $true
+    $script:Gui.OvCancel.IsEnabled = $false
+    if ($script:Wizard -and $script:Wizard.Window.IsVisible) { $script:Wizard.WzClose.IsEnabled = $false }
+    $script:Progress.Text = 'Cancelando, espera unos segundos...'
 }
 
 function Hide-Overlay {
@@ -3177,10 +3617,33 @@ function Set-BusyProgress {
         $g.Progress.Maximum = $p.Total
         $g.Progress.Value = [Math]::Max(0, $p.Step - 1)
         $g.OvPercent.Text = "$($p.Step) de $($p.Total)"
-    } elseif ($script:Wizard -and $script:Wizard.Window.IsVisible) {
-        $script:Wizard.WzResult.Text = $p.Text
+        return
+    }
+    $info = ''
+    if ($p.Long -and $p.Started) {
+        $now = Get-Date
+        $info = "Lleva $(Format-Elapsed ($now - $p.Started)) · sigue trabajando"
+        $pct = [double]$p.Percent
+        if ($pct -ge 0) { $info = ('{0:N1} % · ' -f $pct) + $info }
+        $quiet = if ($p.LastProgress) { $now - $p.LastProgress } else { [TimeSpan]::Zero }
+        if ($quiet.TotalMinutes -ge 3) {
+            $info += "`nHace $([int][Math]::Floor($quiet.TotalMinutes)) min que no cambia el porcentaje. Es normal: DISM y SFC se quedan a veces varios minutos en el mismo número. No apagues la PC."
+        }
+        if (-not $script:Wizard -or -not $script:Wizard.Window.IsVisible) {
+            if ($pct -ge 0) {
+                $g.Progress.IsIndeterminate = $false
+                $g.Progress.Maximum = 100
+                $g.Progress.Value = $pct
+            } else {
+                $g.Progress.IsIndeterminate = $true
+            }
+        }
+    }
+    if ($script:Wizard -and $script:Wizard.Window.IsVisible) {
+        $script:Wizard.WzResult.Text = if ($info) { "$($p.Text)`n$info" } else { $p.Text }
     } else {
         $g.OvDetail.Text = $p.Text
+        $g.OvPercent.Text = $info
     }
 }
 
@@ -3370,7 +3833,7 @@ function Start-Recheck($View) {
 # Devuelve @{ Ok; Message } o $null si el usuario dijo que no.
 function Invoke-FixFlow([string]$Id, $Arg) {
     $g = $script:Gui
-    $text = Get-FixDescription $Id
+    $text = Get-FixDescription $Id $Arg
     $changes = Test-FixChanges $Id
     if ($text -and $Id -notin 'buscar-driver', 'abrir-seguridad', 'informe-bateria') {
         $question = "Diagnóstico PC va a:`n`n$text"
@@ -3387,23 +3850,39 @@ function Invoke-FixFlow([string]$Id, $Arg) {
             $script:RestorePointDone = $true
         }
         Set-BusyText 'Aplicando el arreglo...'
+        $long = [bool]($script:FixInfo[$Id] -and $script:FixInfo[$Id].Long)
         $script:Progress.Text = ''
         $script:Progress.Total = 1
-        $res = if ($script:FixInfo[$Id] -and $script:FixInfo[$Id].Long) {
-            @(Invoke-Background { param($i, $a) Invoke-Fix $i $a } @($Id, $Arg))[0]
+        $script:Progress.Percent = -1
+        $script:Progress.Cancel = $false
+        $script:Progress.Started = Get-Date
+        $script:Progress.LastProgress = Get-Date
+        $script:Progress.Long = $long
+        if ($long) {
+            Set-CancelButton $true
+            $res = @(Invoke-Background { param($i, $a) Invoke-Fix $i $a } @($Id, $Arg))[0]
         } else {
-            Invoke-Fix $Id $Arg
+            $res = Invoke-Fix $Id $Arg
         }
+        if ($script:Progress.Cancel) { throw 'Cancelado por el usuario.' }
         $script:Progress.Text = ''
         if ($res.Description) { [void](Add-ChangeLog $res.Description $res.Undo) }
         Update-ChangeList
         $msg = $res.Message
         if ($note) { $msg += "`n`n$note" }
-        @{ Ok = $true; Message = $msg }
+        @{ Ok = $true; Warn = [bool]$res.Warn; Message = $msg }
     } catch {
-        Write-Log "Error en el arreglo $Id`: $($_.Exception.Message)"
-        @{ Ok = $false; Message = "No se pudo completar: $($_.Exception.Message)" }
+        if ($script:Progress.Cancel) {
+            Write-Log "Arreglo cancelado: $Id"
+            @{ Ok = $false; Canceled = $true; Message = 'Se canceló. Lo que ya se alcanzó a hacer queda hecho y no se dañó nada: puedes volver a intentarlo cuando quieras.' }
+        } else {
+            Write-Log "Error en el arreglo $Id`: $($_.Exception.Message)"
+            @{ Ok = $false; Message = "No se pudo completar: $($_.Exception.Message)" }
+        }
     } finally {
+        $script:Progress.Long = $false
+        $script:Progress.Text = ''
+        Set-CancelButton $false
         $g.IsBusy = $wasBusy
     }
 }
@@ -3425,9 +3904,9 @@ function Start-FindingFix($View) {
         $g.IsBusy = $true
         try { Invoke-Recheck $f.Check $f.Id } catch { } finally { $g.IsBusy = $false }
     }
-    $kind = if ($res.Ok) { 'Ok' } else { 'Error' }
-    $title = if ($res.Ok) { 'Arreglado' } else { 'No se pudo arreglar' }
-    Show-OverlayResult -Kind $kind -Title $title -Text $res.Message -ShowSupport:$res.Ok
+    $kind = if ($res.Canceled) { 'Info' } elseif (-not $res.Ok) { 'Error' } elseif ($res.Warn) { 'Warn' } else { 'Ok' }
+    $title = switch ($kind) { 'Info' { 'Cancelado' } 'Error' { 'No se pudo arreglar' } 'Warn' { 'Terminó, con avisos' } default { 'Arreglado' } }
+    Show-OverlayResult -Kind $kind -Title $title -Text $res.Message -ShowSupport:($res.Ok -and -not $res.Warn)
 }
 
 # Botón de una fila del detalle (Cerrar, Quitar del arranque, Paso a paso...)
@@ -3453,7 +3932,7 @@ function Start-ItemAction($Item, [string]$Which) {
     Hide-Overlay
     if (-not $res) { $Item.Status = ''; return }
     $Item.Status = $res.Message
-    if ($res.Ok -and $action -ne 'buscar-driver') { $Item.IsEnabled = $false }
+    if ($res.Ok -and $action -notin 'buscar-driver', 'ver-kb') { $Item.IsEnabled = $false }
 }
 
 #endregion
@@ -3489,7 +3968,9 @@ function New-StepWizard {
         $w = $script:Wizard
         if ($w.Index -gt 0) { $w.Index--; Show-WizardStep }
     })
-    $wz.WzClose.Add_Click({ $script:Wizard.Window.Close() })
+    $wz.WzClose.Add_Click({
+        if ($script:Wizard.Working) { Request-Cancel } else { $script:Wizard.Window.Close() }
+    })
     $wz.WzCopy.Add_Click({
         try {
             [System.Windows.Clipboard]::SetText($script:Wizard.WzCmd.Text)
@@ -3560,7 +4041,7 @@ function Invoke-WizardAction {
         $w.WzPrev.IsEnabled = $w.Index -gt 0
     }
     if (-not $res) { $w.WzResultBox.Visibility = 'Collapsed'; return }
-    Show-WizardResult $res.Message $(if ($res.Ok) { 'Ok' } else { 'Error' })
+    Show-WizardResult $res.Message $(if ($res.Ok -and -not $res.Warn) { 'Ok' } elseif ($res.Canceled -or $res.Warn) { 'Info' } else { 'Error' })
     if ($res.Ok -and (Test-NeedsRecheck $s.Fix)) { $w.NeedsRecheck = $true }
 }
 
@@ -3584,7 +4065,7 @@ $script:HomeAreas = @(
     ,@(0xE772, 'Drivers', 'Dispositivos sin driver o con fallas')
     ,@(0xE7F4, 'Pantallas azules', 'Si hubo, cuándo, por qué y cómo evitarlas')
     ,@(0xE943, 'Registro de Windows', 'Cambios peligrosos y ajustes importantes')
-    ,@(0xE8A5, 'Archivos de Windows', 'Archivos dañados o que faltan')
+    ,@(0xE8A5, 'Archivos y actualizaciones', 'Archivos dañados o que faltan, y actualizaciones con problemas')
     ,@(0xEDA2, 'Disco, batería y antivirus', 'Espacio, salud del disco, batería y protección')
 )
 
@@ -3598,6 +4079,7 @@ $script:Tools = @(
     @{ Id = 'taskmgr';      Glyph = 0xE71D; Title = 'Administrador de tareas'; Text = 'Programas abiertos y lo que consume cada uno.' }
     @{ Id = 'cleanmgr';     Glyph = 0xE74D; Title = 'Liberador de espacio en disco'; Text = 'Borra archivos temporales y restos de actualizaciones.' }
     @{ Id = 'security';     Glyph = 0xEA18; Title = 'Seguridad de Windows'; Text = 'Antivirus, firewall y examen de virus.' }
+    @{ Id = 'wuhistory';    Glyph = 0xE895; Title = 'Historial de actualizaciones'; Text = 'Actualizaciones de Windows instaladas, y la opción de desinstalarlas.' }
 )
 
 function New-IconTextBlock([int]$Glyph, [double]$Size) {
@@ -3708,6 +4190,7 @@ function Invoke-Tool([string]$Id) {
         'taskmgr'  { Open-Target 'taskmgr.exe' }
         'cleanmgr' { Open-Target 'cleanmgr.exe' }
         'security' { Open-Target 'windowsdefender://threat' }
+        'wuhistory' { Open-Target 'ms-settings:windowsupdate-history' }
     }
 }
 
@@ -4166,6 +4649,7 @@ function New-MainWindow {
 
     # --- Ventana de resultado ---
     $g.OvClose.Add_Click({ Hide-Overlay })
+    $g.OvCancel.Add_Click({ Request-Cancel })
     $g.OvSupport.Add_Click({ Open-SupportPage })
     $g.BtnSupport.Add_Click({ Open-SupportPage })
     $g.OvPrimary.Add_Click({
