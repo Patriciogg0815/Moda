@@ -133,43 +133,36 @@ y tenía programas que no la dejaban suspender). Muestra cada revisión en rojo/
   unir la rama a `main` para que se publique la política de privacidad en GitHub Pages.
 - Limitación conocida: no identifica el driver exacto de una pantalla azul (necesitaría WinDbg); da la
   causa por el código del error.
-- **Prueba del usuario en su PC (24/10/2026, v1.0.9, HP ZBook Power 15.6 G10, Windows 11 Pro 26H2)** —
-  encontró estos problemas, **todavía sin corregir** (la sesión se cortó; el siguiente Claude debe hacerlos,
-  probar en CI con `diagnostico-pc.yml` y pedirle al usuario que vuelva a probar):
-  1. **"Reparar archivos de Windows" no muestra si avanza o se colgó**: la ventana se queda en "Paso 1 de 2:
-     reparando la imagen de Windows con DISM..." con la barra moviéndose, sin porcentaje ni tiempo. Hace
-     falta: porcentaje de DISM/SFC en vivo (leer su salida mientras corre), tiempo transcurrido, aviso si
-     no hay avance en varios minutos ("DISM puede quedarse en 62,3 % un rato, es normal"), mensaje claro si
-     termina con error, y botón para cancelar. (Aplica a todo arreglo largo: `Long = $true` en `$script:FixInfo`.)
-  2. Hibernación: dijo "Con batería tarda 596523 horas y 14 min en hibernar". Windows guarda un valor
-     enorme que en realidad significa "Nunca": tratar valores ≥ 30 días como "Nunca" (rojo).
-  3. Driver de video: marcó "El driver de video es del 2019 – MS Idd Device", que es una pantalla virtual
-     de Microsoft. Revisar solo adaptadores reales (PNPDeviceID que empieza con `PCI\`).
-  4. El encabezado repite la marca: "HP HP ZBook...". Quitar el fabricante del modelo si ya empieza con él.
-  - Resultado real en su PC: 6 pantallas azules en 30 días, archivos de Windows dañados (reparables),
-    21 programas en el arranque, 2 apagones de golpe.
-- **Pedido nuevo del usuario (25/10/2026, todavía sin hacer): desinstalar actualizaciones de Windows** que
-  dan problemas, con un aviso cuando Microsoft reconoce que una actualización tiene fallas. Diseño acordado:
-  - Nueva revisión "Actualizaciones de Windows" (área Sistema) y una sección en "Herramientas y cambios" con
-    la lista de actualizaciones instaladas (nombre, KB, fecha). Historial: COM `Microsoft.Update.Session` →
-    `QueryHistory`; paquetes: `Get-WindowsPackage -Online` (ReleaseType `Update`/`SecurityUpdate`/`RollupFix`).
-  - Desinstalar: `wusa.exe /uninstall /kb:N /quiet /norestart`; en Windows 11 la acumulativa (LCU) viene
-    junto con la de la pila de servicio y wusa no la quita: usar `DISM /Online /Remove-Package
-    /PackageName:Package_for_RollupFix~...`. Con confirmación, punto de restauración y aviso de reinicio. Las
-    de seguridad: advertir que la PC queda menos protegida. Las de la pila de servicio (SSU) no se pueden quitar.
-  - Para que no se vuelva a instalar sola: ofrecer "Pausar actualizaciones" (Configuración → Windows Update →
-    Pausar actualizaciones, hasta 5 semanas) y explicar cómo reanudarlas.
-  - **Aviso "Microsoft reconoce fallas"**: Microsoft casi nunca dice "desinstálala"; publica "Problemas
-    conocidos" en la página de cada KB (`https://support.microsoft.com/help/<KB>`) y en Windows release health
-    (`https://learn.microsoft.com/windows/release-health/`, una página por versión, p. ej.
-    `status-windows-11-24h2`), y muchas veces lo corrige solo con "Known Issue Rollback" (KIR). La app debe:
-    (a) con internet, leer esas páginas y, si la KB instalada aparece en problemas conocidos abiertos, mostrar
-    en amarillo/rojo "Microsoft reconoce problemas con esta actualización" con el resumen y el enlace; si
-    Microsoft indica desinstalarla o la retiró, decirlo así; (b) sin depender de Microsoft, cruzar fechas:
-    si las pantallas azules, apagones o fallas empezaron después de instalar una actualización, sugerir
-    probar a desinstalarla. Ser claro con el usuario: es una sugerencia, no una certeza.
-  - No hay API oficial gratuita para consumidores (la de Microsoft Graph es para empresas con Intune); por eso
-    se lee la página pública. Si la página cambia de formato, la app debe seguir funcionando sin el aviso.
+- **Prueba del usuario en su PC (24/10/2026, v1.0.9, HP ZBook Power 15.6 G10, Windows 11 Pro 26H2)**: resultado
+  real: 6 pantallas azules en 30 días, archivos de Windows dañados (reparables), 21 programas en el arranque,
+  2 apagones de golpe. Encontró 4 problemas, **corregidos el 27/10/2026** (rama, ejecución 12 de
+  `diagnostico-pc.yml` en verde; falta que el usuario vuelva a probar):
+  1. "Reparar archivos de Windows" no mostraba si avanzaba: ahora `Invoke-LongExternal` + la clase C#
+     `LiveProcess` leen la salida de DISM/SFC mientras corren y la ventana muestra porcentaje, tiempo
+     ("Lleva 9 min 24 s · sigue trabajando"), un aviso si el porcentaje no cambia en 3 min (es normal) y el
+     botón **Cancelar** (`Request-Cancel`, mata también los subprocesos con `taskkill /T`). Los códigos de
+     error de DISM/wusa se explican (`Get-ExitCodeText`). Vale para todo arreglo con `Long = $true`.
+  2. "596523 horas" para hibernar: valores ≥ 30 días (`$script:NeverSeconds`) se tratan como "Nunca".
+  3. Driver de video: solo se revisan adaptadores `PCI\` (se ignora "MS Idd Device"); en VM, todos.
+  4. "HP HP ZBook": `Remove-BrandPrefix` quita la marca del modelo.
+- **Desinstalar actualizaciones de Windows (hecho el 27/10/2026)**: revisión `Test-WindowsUpdates` (id
+  `actualizaciones`, área Sistema).
+  - Lista: `Get-HotFix` + historial de Windows Update (COM `Microsoft.Update.Session`). Cada una con
+    "Desinstalar" y "Ver en Microsoft"; la pila de servicio no se ofrece desinstalar.
+  - Desinstalar (`desinstalar-actualizacion`, largo, con punto de restauración): `wusa /uninstall`; si falla
+    (acumulativa de Windows 11), `Find-UpdatePackage` + `DISM /Remove-Package`. Pide reiniciar. No se puede
+    "deshacer" desde la app (se reinstala con Windows Update).
+  - `pausar-actualizaciones`: pausa Windows Update 2 semanas (`HKLM\...\WindowsUpdate\UX\Settings`,
+    lo mismo que hace Configuración); se puede deshacer.
+  - Qué dice Microsoft: `Get-KbStatus` lee `https://support.microsoft.com/en-us/help/<KB>` (sección "Known
+    issues in this update") de las 3 más recientes y de la sospechosa: sin problemas / reconoce problemas /
+    menciona desinstalarla. Si la página cambia de formato devuelve `$null` y no avisa nada. **No** se lee
+    Windows release health (pendiente si hiciera falta).
+  - `Find-SuspectUpdate`: la actualización instalada hasta 7 días antes de la primera pantalla azul o
+    apagón de los últimos 60 días (con al menos 2 fallas). Rojo si además Microsoft reconoce problemas o
+    pide desinstalarla; amarillo si solo una de las dos. Siempre aclara que es una sugerencia.
+  - La app ahora se conecta a internet (solo a support.microsoft.com): privacidad, ficha y manifiesto
+    (`internetClient`) actualizados. Captura nueva `8-actualizaciones.png` en el kit de la Store.
 
 ### 3. QuéVeo (Android) — **no está en `main`**
 
@@ -270,7 +263,7 @@ más reciente → Artifacts** (duran 90 días); los de `main` también quedan en
 | RespaldoDrivers (Windows) | [`RespaldoDrivers/`](https://github.com/Patriciogg0815/Moda/tree/main/RespaldoDrivers) + [`store/`](https://github.com/Patriciogg0815/Moda/tree/main/store) | [compilar-exe.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/compilar-exe.yml) | [Releases](https://github.com/Patriciogg0815/Moda/releases) tags `v1.0.N` · enviada a la Store (en certificación) |
 | Monitor de Red (Windows) | [`MonitorRed/`](https://github.com/Patriciogg0815/Moda/tree/main/MonitorRed) | [monitor-red.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/monitor-red.yml) | Releases tags `monitor-red-v1.0.N` (última `monitor-red-v1.0.37`) · enviada a la Store |
 | Monitor de Red (Android) | [`MonitorRedAndroid/`](https://github.com/Patriciogg0815/Moda/tree/main/MonitorRedAndroid) | [monitor-red-android.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/monitor-red-android.yml) | Artifact `GooglePlay-MonitorRed-1.0.N` · falta firmar y subir a Play |
-| **Diagnóstico PC** (Windows) | rama [`claude/nifty-archimedes-rqs2eo`](https://github.com/Patriciogg0815/Moda/tree/claude/nifty-archimedes-rqs2eo/DiagnosticoPC) | [diagnostico-pc.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/diagnostico-pc.yml) | Última verde: [ejecución 9](https://github.com/Patriciogg0815/Moda/actions/runs/40138765701) → artifacts `DiagnosticoPC-1.0.9` (el `.exe`) y `MicrosoftStore-DiagnosticoPC-1.0.9` (kit). Probada por el usuario: hay que corregir (ver 2c) |
+| **Diagnóstico PC** (Windows) | rama [`claude/nifty-archimedes-rqs2eo`](https://github.com/Patriciogg0815/Moda/tree/claude/nifty-archimedes-rqs2eo/DiagnosticoPC) | [diagnostico-pc.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/diagnostico-pc.yml) | Última verde: [ejecución 12](https://github.com/Patriciogg0815/Moda/actions/runs/40521639901) → artifacts `DiagnosticoPC-1.0.12` (el `.exe`) y `MicrosoftStore-DiagnosticoPC-1.0.12` (kit). Con los arreglos de la prueba del usuario y las actualizaciones de Windows (ver 2c) |
 | Web garridoitsolutions.lat | [`web-garridoitsolutions/`](https://github.com/Patriciogg0815/Moda/tree/main/web-garridoitsolutions) (instrucciones para Claude de escritorio) | — (se publica desde la PC) | Tanda 1 publicada, tanda 2 pendiente |
 | QuéVeo (Android, versión vieja) | rama [`claude/lucid-wozniak-0g599n`](https://github.com/Patriciogg0815/Moda/tree/claude/lucid-wozniak-0g599n) | — | La versión vigente está en la PC (`C:\pelis`) |
 | Convertir.ec (web) | repo privado https://github.com/Patriciogg0815/convertir-ec | Netlify publica `main` solo | https://convertir-ec.netlify.app/ |
@@ -296,12 +289,10 @@ Ramas (al 24/10/2026): `main` tiene todo lo terminado; `claude/nifty-archimedes-
 3. **Microsoft Store:** esperar la certificación de Monitor de Red de Casa y RespaldoDrivers; cuando aprueben,
    cambiar sus insignias "Coming Soon" en garridoitsolutions.lat por las de "Disponible" con su enlace, y
    enviar la actualización del Monitor con alertas (kit 1.0.37 o más nuevo).
-4. **Diagnóstico PC:** corregir los 4 problemas de la prueba del usuario (sección 2c; el más importante es
-   mostrar el avance de "Reparar archivos de Windows"), volver a probar, unir la rama a `main` (PR), reservar
-   el nombre "Diagnóstico PC" en Partner Center y poner el `IdentityName` en `DiagnosticoPC/store/identidad.json`.
-   Agregar la tarjeta de Diagnóstico PC en garridoitsolutions.lat cuando esté en la Store.
-   Además, el pedido nuevo: **desinstalar actualizaciones de Windows** con aviso de "Microsoft reconoce fallas"
-   (diseño en la sección 2c).
+4. **Diagnóstico PC:** los 4 problemas y la desinstalación de actualizaciones ya están hechos (27/10/2026).
+   Falta: que el usuario pruebe la versión nueva en su PC, unir la rama a `main` (PR), reservar el nombre
+   "Diagnóstico PC" en Partner Center, poner el `IdentityName` en `DiagnosticoPC/store/identidad.json` y
+   agregar la tarjeta de Diagnóstico PC en garridoitsolutions.lat cuando esté en la Store.
 5. Ideas para después: AdMob en la app de Android; en Windows, seguir vigilando con la ventana cerrada e
    iniciar con Windows; conectores de routers.
 
