@@ -142,6 +142,10 @@ y tenía programas que no la dejaban suspender). Muestra cada revisión en rojo/
      ("Lleva 9 min 24 s · sigue trabajando"), un aviso si el porcentaje no cambia en 3 min (es normal) y el
      botón **Cancelar** (`Request-Cancel`, mata también los subprocesos con `taskkill /T`). Los códigos de
      error de DISM/wusa se explican (`Get-ExitCodeText`). Vale para todo arreglo con `Long = $true`.
+  5. (27/10/2026, ejecución 13) El paso «Creando un punto de restauración» también se quedaba sin señales:
+     ahora muestra «Lleva X · sigue trabajando», a los 45 s explica que Windows puede tardar, y tiene el botón
+     **Saltar este paso** («Dejar de esperar» en Herramientas). `Invoke-Background -Cancelable` deja de
+     esperar al instante (abandona el runspace); lo usan también los arreglos largos.
   2. "596523 horas" para hibernar: valores ≥ 30 días (`$script:NeverSeconds`) se tratan como "Nunca".
   3. Driver de video: solo se revisan adaptadores `PCI\` (se ignora "MS Idd Device"); en VM, todos.
   4. "HP HP ZBook": `Remove-BrandPrefix` quita la marca del modelo.
@@ -263,7 +267,7 @@ más reciente → Artifacts** (duran 90 días); los de `main` también quedan en
 | RespaldoDrivers (Windows) | [`RespaldoDrivers/`](https://github.com/Patriciogg0815/Moda/tree/main/RespaldoDrivers) + [`store/`](https://github.com/Patriciogg0815/Moda/tree/main/store) | [compilar-exe.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/compilar-exe.yml) | [Releases](https://github.com/Patriciogg0815/Moda/releases) tags `v1.0.N` · enviada a la Store (en certificación) |
 | Monitor de Red (Windows) | [`MonitorRed/`](https://github.com/Patriciogg0815/Moda/tree/main/MonitorRed) | [monitor-red.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/monitor-red.yml) | Releases tags `monitor-red-v1.0.N` (última `monitor-red-v1.0.37`) · enviada a la Store |
 | Monitor de Red (Android) | [`MonitorRedAndroid/`](https://github.com/Patriciogg0815/Moda/tree/main/MonitorRedAndroid) | [monitor-red-android.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/monitor-red-android.yml) | Artifact `GooglePlay-MonitorRed-1.0.N` · falta firmar y subir a Play |
-| **Diagnóstico PC** (Windows) | rama [`claude/nifty-archimedes-rqs2eo`](https://github.com/Patriciogg0815/Moda/tree/claude/nifty-archimedes-rqs2eo/DiagnosticoPC) | [diagnostico-pc.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/diagnostico-pc.yml) | Última verde: [ejecución 12](https://github.com/Patriciogg0815/Moda/actions/runs/40521639901) → artifacts `DiagnosticoPC-1.0.12` (el `.exe`) y `MicrosoftStore-DiagnosticoPC-1.0.12` (kit). Con los arreglos de la prueba del usuario y las actualizaciones de Windows (ver 2c) |
+| **Diagnóstico PC** (Windows) | rama [`claude/nifty-archimedes-rqs2eo`](https://github.com/Patriciogg0815/Moda/tree/claude/nifty-archimedes-rqs2eo/DiagnosticoPC) | [diagnostico-pc.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/diagnostico-pc.yml) | Última verde: [ejecución 13](https://github.com/Patriciogg0815/Moda/actions/runs/40524257099) → artifacts `DiagnosticoPC-1.0.13` (el `.exe`) y `MicrosoftStore-DiagnosticoPC-1.0.13` (kit con msix, 8 capturas, logos, arte y ficha). Con los arreglos de la prueba del usuario, las actualizaciones de Windows y «Saltar este paso» (ver 2c) |
 | Web garridoitsolutions.lat | [`web-garridoitsolutions/`](https://github.com/Patriciogg0815/Moda/tree/main/web-garridoitsolutions) (instrucciones para Claude de escritorio) | — (se publica desde la PC) | Tanda 1 publicada, tanda 2 pendiente |
 | QuéVeo (Android, versión vieja) | rama [`claude/lucid-wozniak-0g599n`](https://github.com/Patriciogg0815/Moda/tree/claude/lucid-wozniak-0g599n) | — | La versión vigente está en la PC (`C:\pelis`) |
 | Convertir.ec (web) | repo privado https://github.com/Patriciogg0815/convertir-ec | Netlify publica `main` solo | https://convertir-ec.netlify.app/ |
