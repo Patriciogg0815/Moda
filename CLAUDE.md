@@ -106,6 +106,69 @@ de tipos y alertas que Windows. Detalles en `MonitorRedAndroid/README.md`.
 - Para compilar en la nube de Claude: Maven Central responde 429; se usa el espejo de Google en
   `~/.gradle/init.d` (solo local) y `-ProbolectricRepo`.
 
+### 2c. Diagnóstico PC (Windows) — rama `claude/nifty-archimedes-rqs2eo` (todavía **no** está en `main`)
+
+Autodiagnóstico de Windows (idea del usuario: su laptop se calentaba en la mochila porque no hibernaba bien
+y tenía programas que no la dejaban suspender). Muestra cada revisión en rojo/amarillo/verde, con botón
+"Arreglar" y una **ventana aparte de paso a paso**, y **avisos** junto al reloj.
+
+- Código: `DiagnosticoPC/DiagnosticoPC.ps1` (PowerShell 5.1 + WPF, pide administrador), documentado en
+  `DiagnosticoPC/README.md`. Compila con `DiagnosticoPC/Crear-EXE.ps1` (`-EdicionStore` quita "Iniciar con
+  Windows", que usa una tarea programada `DiagnosticoPC-Avisos`).
+- Revisiones (`$script:Checks`): hibernación/"Hibernar tras" (lee `GetPwrCapabilities` y el plan con
+  `PowerReadACValueIndex`), tapa, `powercfg /requests`, reactivaciones de madrugada, plan, inicio rápido,
+  temperatura + evento 37, CPU/memoria por programa, arranque (StartupApproved, detecta archivos que
+  faltan), dispositivos con error, driver de video, pantallas azules (eventos 1001, Kernel-Power 41 y
+  cabecera de minidumps; las **confirma** y da la causa por código), volcados, registro (Shell/Userinit,
+  bloqueos, IFEO), `Repair-WindowsImage -CheckHealth`, disco, SMART, batería, antivirus, reinicio.
+- Arreglos (`Invoke-Fix`): piden confirmación, crean punto de restauración y guardan cómo deshacer en
+  `%APPDATA%\DiagnosticoPC\cambios.json` ("Herramientas y cambios" → Deshacer).
+- CI: `.github/workflows/diagnostico-pc.yml` + `.github/scripts/Probar-DiagnosticoPC.ps1` (lógica, análisis
+  real del runner, capturas con una laptop HP de ejemplo usando la lógica real con datos simulados).
+  `DIAGNOSTICOPC_PRUEBA=1` = modo prueba. En `main` publica el tag `diagnostico-pc-v1.0.N`.
+- Store: `DiagnosticoPC/store/` con ícono/logos/arte **propios** (índigo, laptop con pulso y 3 puntos de
+  colores; el usuario pidió que no se repitan imágenes de otras apps), privacidad y `FICHA-TIENDA.md` con
+  todos los textos. Kit: artifact `MicrosoftStore-DiagnosticoPC-1.0.N`. Nombre **reservado** el 27/10/2026:
+  "Diagnóstico PC", identidad `GarridoitSolutions.DiagnsticoPC` (sin la «ó», así la generó Partner Center; PFN
+  `GarridoitSolutions.DiagnsticoPC_qketwn0rzx7t0`), ya en `store/identidad.json`: sirve el kit 1.0.15 o más nuevo.
+  **Pendiente:** unir la rama a `main` para que se publique la política de privacidad en GitHub Pages.
+- Limitación conocida: no identifica el driver exacto de una pantalla azul (necesitaría WinDbg); da la
+  causa por el código del error.
+- **Prueba del usuario en su PC (24/10/2026, v1.0.9, HP ZBook Power 15.6 G10, Windows 11 Pro 26H2)**: resultado
+  real: 6 pantallas azules en 30 días, archivos de Windows dañados (reparables), 21 programas en el arranque,
+  2 apagones de golpe. Encontró 4 problemas, **corregidos el 27/10/2026** (rama, ejecución 12 de
+  `diagnostico-pc.yml` en verde; falta que el usuario vuelva a probar):
+  1. "Reparar archivos de Windows" no mostraba si avanzaba: ahora `Invoke-LongExternal` + la clase C#
+     `LiveProcess` leen la salida de DISM/SFC mientras corren y la ventana muestra porcentaje, tiempo
+     ("Lleva 9 min 24 s · sigue trabajando"), un aviso si el porcentaje no cambia en 3 min (es normal) y el
+     botón **Cancelar** (`Request-Cancel`, mata también los subprocesos con `taskkill /T`). Los códigos de
+     error de DISM/wusa se explican (`Get-ExitCodeText`). Vale para todo arreglo con `Long = $true`.
+  5. (27/10/2026, ejecución 13) El paso «Creando un punto de restauración» también se quedaba sin señales:
+     ahora muestra «Lleva X · sigue trabajando», a los 45 s explica que Windows puede tardar, y tiene el botón
+     **Saltar este paso** («Dejar de esperar» en Herramientas). `Invoke-Background -Cancelable` deja de
+     esperar al instante (abandona el runspace); lo usan también los arreglos largos.
+  2. "596523 horas" para hibernar: valores ≥ 30 días (`$script:NeverSeconds`) se tratan como "Nunca".
+  3. Driver de video: solo se revisan adaptadores `PCI\` (se ignora "MS Idd Device"); en VM, todos.
+  4. "HP HP ZBook": `Remove-BrandPrefix` quita la marca del modelo.
+- **Desinstalar actualizaciones de Windows (hecho el 27/10/2026)**: revisión `Test-WindowsUpdates` (id
+  `actualizaciones`, área Sistema).
+  - Lista: `Get-HotFix` + historial de Windows Update (COM `Microsoft.Update.Session`). Cada una con
+    "Desinstalar" y "Ver en Microsoft"; la pila de servicio no se ofrece desinstalar.
+  - Desinstalar (`desinstalar-actualizacion`, largo, con punto de restauración): `wusa /uninstall`; si falla
+    (acumulativa de Windows 11), `Find-UpdatePackage` + `DISM /Remove-Package`. Pide reiniciar. No se puede
+    "deshacer" desde la app (se reinstala con Windows Update).
+  - `pausar-actualizaciones`: pausa Windows Update 2 semanas (`HKLM\...\WindowsUpdate\UX\Settings`,
+    lo mismo que hace Configuración); se puede deshacer.
+  - Qué dice Microsoft: `Get-KbStatus` lee `https://support.microsoft.com/en-us/help/<KB>` (sección "Known
+    issues in this update") de las 3 más recientes y de la sospechosa: sin problemas / reconoce problemas /
+    menciona desinstalarla. Si la página cambia de formato devuelve `$null` y no avisa nada. **No** se lee
+    Windows release health (pendiente si hiciera falta).
+  - `Find-SuspectUpdate`: la actualización instalada hasta 7 días antes de la primera pantalla azul o
+    apagón de los últimos 60 días (con al menos 2 fallas). Rojo si además Microsoft reconoce problemas o
+    pide desinstalarla; amarillo si solo una de las dos. Siempre aclara que es una sugerencia.
+  - La app ahora se conecta a internet (solo a support.microsoft.com): privacidad, ficha y manifiesto
+    (`internetClient`) actualizados. Captura nueva `8-actualizaciones.png` en el kit de la Store.
+
 ### 3. QuéVeo (Android) — **no está en `main`**
 
 Recomienda películas y series y muestra en qué plataforma verlas (TMDB + JustWatch). Antes se llamaba "Moda".
@@ -194,6 +257,34 @@ publican desde la PC** (por ejemplo Occultarium): se pisaría lo que está en pr
 - En diseño le gustan los elementos grandes, sin espacios vacíos, y el texto oscuro, grande y
   fácil de leer. Nada de texto dibujado dentro de las imágenes (todo en HTML para poder traducirlo).
 
+## Mapa de GitHub: dónde está cada cosa
+
+Repositorio principal (público): https://github.com/Patriciogg0815/Moda — para descargar algo hay que tener la
+sesión de GitHub iniciada. Los `.exe` y kits de cada compilación están en **Actions → (flujo) → ejecución
+más reciente → Artifacts** (duran 90 días); los de `main` también quedan en **Releases**.
+
+| Proyecto | Código | Compilaciones (Actions) | Descargas / estado |
+|---|---|---|---|
+| RespaldoDrivers (Windows) | [`RespaldoDrivers/`](https://github.com/Patriciogg0815/Moda/tree/main/RespaldoDrivers) + [`store/`](https://github.com/Patriciogg0815/Moda/tree/main/store) | [compilar-exe.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/compilar-exe.yml) | [Releases](https://github.com/Patriciogg0815/Moda/releases) tags `v1.0.N` · enviada a la Store (en certificación) |
+| Monitor de Red (Windows) | [`MonitorRed/`](https://github.com/Patriciogg0815/Moda/tree/main/MonitorRed) | [monitor-red.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/monitor-red.yml) | Releases tags `monitor-red-v1.0.N` (última `monitor-red-v1.0.37`) · enviada a la Store |
+| Monitor de Red (Android) | [`MonitorRedAndroid/`](https://github.com/Patriciogg0815/Moda/tree/main/MonitorRedAndroid) | [monitor-red-android.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/monitor-red-android.yml) | Artifact `GooglePlay-MonitorRed-1.0.N` · falta firmar y subir a Play |
+| **Diagnóstico PC** (Windows) | rama [`claude/nifty-archimedes-rqs2eo`](https://github.com/Patriciogg0815/Moda/tree/claude/nifty-archimedes-rqs2eo/DiagnosticoPC) | [diagnostico-pc.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/diagnostico-pc.yml) | Última verde: [ejecución 13](https://github.com/Patriciogg0815/Moda/actions/runs/40524257099) → artifacts `DiagnosticoPC-1.0.13` (el `.exe`) y `MicrosoftStore-DiagnosticoPC-1.0.13` (kit con msix, 8 capturas, logos, arte y ficha). Con los arreglos de la prueba del usuario, las actualizaciones de Windows y «Saltar este paso» (ver 2c) |
+| Web garridoitsolutions.lat | [`web-garridoitsolutions/`](https://github.com/Patriciogg0815/Moda/tree/main/web-garridoitsolutions) (instrucciones para Claude de escritorio) | — (se publica desde la PC) | Tanda 1 publicada, tanda 2 pendiente |
+| QuéVeo (Android, versión vieja) | rama [`claude/lucid-wozniak-0g599n`](https://github.com/Patriciogg0815/Moda/tree/claude/lucid-wozniak-0g599n) | — | La versión vigente está en la PC (`C:\pelis`) |
+| Convertir.ec (web) | repo privado https://github.com/Patriciogg0815/convertir-ec | Netlify publica `main` solo | https://convertir-ec.netlify.app/ |
+| ConsultaEC (web) | https://github.com/Patriciogg0815/consultaec | Netlify | https://consultaec.netlify.app/ |
+
+Políticas de privacidad publicadas con GitHub Pages desde `main`:
+- RespaldoDrivers: https://patriciogg0815.github.io/Moda/store/privacidad.html
+- Monitor de Red: https://patriciogg0815.github.io/Moda/MonitorRed/store/privacidad.html
+- Diagnóstico PC: https://patriciogg0815.github.io/Moda/DiagnosticoPC/store/privacidad.html (**funcionará
+  cuando la rama de Diagnóstico PC se una a `main`**)
+
+Ramas (al 24/10/2026): `main` tiene todo lo terminado; `claude/nifty-archimedes-rqs2eo` = Diagnóstico PC
+(sin unir); `claude/lucid-wozniak-0g599n` y `claude/movie-series-recommender-app-unh84n` = QuéVeo viejo;
+`claude/project-thread-hfo1sm` y `claude/project-thread-uf9bcg` = versiones viejas del Monitor sin publicidad
+(no unir: se decidió mantener la publicidad). Las demás ramas ya están unidas a `main`.
+
 ## Pendientes (al 24/10/2026)
 
 1. **Claude de escritorio, tanda 2** de `web-garridoitsolutions/INSTRUCCIONES-CLAUDE-ESCRITORIO.md`: publicar
@@ -203,7 +294,11 @@ publican desde la PC** (por ejemplo Occultarium): se pisaría lo que está en pr
 3. **Microsoft Store:** esperar la certificación de Monitor de Red de Casa y RespaldoDrivers; cuando aprueben,
    cambiar sus insignias "Coming Soon" en garridoitsolutions.lat por las de "Disponible" con su enlace, y
    enviar la actualización del Monitor con alertas (kit 1.0.37 o más nuevo).
-4. Ideas para después: AdMob en la app de Android; en Windows, seguir vigilando con la ventana cerrada e
+4. **Diagnóstico PC:** los 4 problemas y la desinstalación de actualizaciones ya están hechos (27/10/2026).
+   Nombre reservado e identidad puesta (27/10/2026). Falta: que el usuario pruebe la versión nueva en su PC,
+   unir la rama a `main` (PR, para la política de privacidad), enviar a la Store con el kit 1.0.15 o más nuevo y
+   agregar la tarjeta de Diagnóstico PC en garridoitsolutions.lat cuando esté en la Store.
+5. Ideas para después: AdMob en la app de Android; en Windows, seguir vigilando con la ventana cerrada e
    iniciar con Windows; conectores de routers.
 
 ## Publicidad: decisiones
