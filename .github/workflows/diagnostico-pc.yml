@@ -74,8 +74,33 @@ jobs:
       - name: Instalar ps2exe
         shell: powershell
         run: |
-          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-          Install-Module ps2exe -Scope CurrentUser -Force
+          # PowerShell Gallery y su instalador (PowerShellGet) a veces fallan. Si Install-Module no
+          # funciona, se descarga el paquete directamente y se copia a la carpeta de módulos.
+          try {
+            Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+            Install-Module ps2exe -Scope CurrentUser -Force -ErrorAction Stop
+          } catch {
+            Write-Host "Install-Module falló ($_). Se descarga ps2exe directamente."
+            $destino = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'WindowsPowerShell\Modules\ps2exe'
+            $listo = $false
+            foreach ($intento in 1..3) {
+              foreach ($version in '', '/1.0.17') {
+                try {
+                  $zip = Join-Path $env:RUNNER_TEMP 'ps2exe.zip'
+                  Invoke-WebRequest "https://www.powershellgallery.com/api/v2/package/ps2exe$version" -OutFile $zip -UseBasicParsing
+                  if (Test-Path $destino) { Remove-Item $destino -Recurse -Force }
+                  Expand-Archive $zip -DestinationPath $destino -Force
+                  $listo = $true
+                  break
+                } catch { Write-Host "No se pudo descargar ps2exe$version (intento $intento): $_" }
+              }
+              if ($listo) { break }
+              Start-Sleep -Seconds (20 * $intento)
+            }
+            if (-not $listo) { throw 'No se pudo instalar ps2exe.' }
+          }
+          Import-Module ps2exe -ErrorAction Stop
+          Write-Host "ps2exe $((Get-Module ps2exe).Version) listo"
 
       - name: Generar DiagnosticoPC.exe
         shell: powershell
