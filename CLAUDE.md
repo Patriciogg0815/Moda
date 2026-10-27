@@ -128,9 +128,10 @@ y tenía programas que no la dejaban suspender). Muestra cada revisión en rojo/
   `DIAGNOSTICOPC_PRUEBA=1` = modo prueba. En `main` publica el tag `diagnostico-pc-v1.0.N`.
 - Store: `DiagnosticoPC/store/` con ícono/logos/arte **propios** (índigo, laptop con pulso y 3 puntos de
   colores; el usuario pidió que no se repitan imágenes de otras apps), privacidad y `FICHA-TIENDA.md` con
-  todos los textos. Kit: artifact `MicrosoftStore-DiagnosticoPC-1.0.N`. **Pendiente:** reservar el nombre
-  "Diagnóstico PC" en Partner Center y poner `IdentityName` en `store/identidad.json` (hoy dice PENDIENTE);
-  unir la rama a `main` para que se publique la política de privacidad en GitHub Pages.
+  todos los textos. Kit: artifact `MicrosoftStore-DiagnosticoPC-1.0.N`. Nombre **reservado** el 27/10/2026:
+  "Diagnóstico PC", identidad `GarridoitSolutions.DiagnsticoPC` (sin la «ó», así la generó Partner Center; PFN
+  `GarridoitSolutions.DiagnsticoPC_qketwn0rzx7t0`), ya en `store/identidad.json`: sirve el kit 1.0.15 o más nuevo.
+  **Pendiente:** unir la rama a `main` para que se publique la política de privacidad en GitHub Pages.
 - Limitación conocida: no identifica el driver exacto de una pantalla azul (necesitaría WinDbg); da la
   causa por el código del error.
 - **Prueba del usuario en su PC (24/10/2026, v1.0.9, HP ZBook Power 15.6 G10, Windows 11 Pro 26H2)**: resultado
@@ -294,8 +295,8 @@ Ramas (al 24/10/2026): `main` tiene todo lo terminado; `claude/nifty-archimedes-
    cambiar sus insignias "Coming Soon" en garridoitsolutions.lat por las de "Disponible" con su enlace, y
    enviar la actualización del Monitor con alertas (kit 1.0.37 o más nuevo).
 4. **Diagnóstico PC:** los 4 problemas y la desinstalación de actualizaciones ya están hechos (27/10/2026).
-   Falta: que el usuario pruebe la versión nueva en su PC, unir la rama a `main` (PR), reservar el nombre
-   "Diagnóstico PC" en Partner Center, poner el `IdentityName` en `DiagnosticoPC/store/identidad.json` y
+   Nombre reservado e identidad puesta (27/10/2026). Falta: que el usuario pruebe la versión nueva en su PC,
+   unir la rama a `main` (PR, para la política de privacidad), enviar a la Store con el kit 1.0.15 o más nuevo y
    agregar la tarjeta de Diagnóstico PC en garridoitsolutions.lat cuando esté en la Store.
 5. Ideas para después: AdMob en la app de Android; en Windows, seguir vigilando con la ventana cerrada e
    iniciar con Windows; conectores de routers.

@@ -14,7 +14,7 @@ Dentro vienen:
 | `ArteSuperheroe-3840x2160.png` / `-1920x1080.png` | **Ficha → Arte de superhéroe (16:9)** |
 | `FICHA-TIENDA.md` | Esta guía, con todos los textos para copiar |
 
-> ⚠️ Usa el kit generado **después** de completar `IdentityName` (Paso 1). El de antes sirve para probar,
+> ⚠️ Usa el kit **1.0.15 o más nuevo** (el primero con la identidad correcta). Los anteriores sirven para probar,
 > pero Partner Center lo rechaza con un error de identidad.
 
 ## Archivos de esta carpeta
@@ -23,7 +23,7 @@ Misma estructura que `store/` de RespaldoDrivers y del Monitor de Red:
 
 | Archivo | Para qué sirve |
 |---|---|
-| `identidad.json` | Datos de Partner Center (**falta `IdentityName`**, aparece al reservar el nombre) |
+| `identidad.json` | Datos de Partner Center (completo: `GarridoitSolutions.DiagnsticoPC`, reservado el 27/10/2026) |
 | `AppxManifest.xml` | Plantilla del manifiesto del paquete MSIX |
 | `Assets/` | Íconos de la app en todos los tamaños |
 | `LogoTienda-300x300.png`, `-150x150`, `-71x71` | Logos para la ficha de la tienda (1:1) |
@@ -51,8 +51,9 @@ Misma estructura que `store/` de RespaldoDrivers y del Monitor de Red:
    Si ya está usado, prueba en este orden: **Diagnóstico PC Fácil**, **Diagnóstico de PC: Semáforo**,
    **Doctor de PC Windows**. Avísale a Claude el nombre que quedó (cambia `DisplayName` en `identidad.json`).
 3. En la app → **Administración de productos** → **Identidad del producto**, copia
-   **Package/Identity/Name** (algo como `GarridoitSolutions.DiagnosticoPC`) y pégalo en `identidad.json`
-   → `IdentityName`, en lugar de `GarridoitSolutions.DiagnosticoPC-PENDIENTE`.
+   **Package/Identity/Name** y pégalo en `identidad.json` → `IdentityName`.
+   **Ya está hecho:** Partner Center quitó la «ó» y la identidad quedó `GarridoitSolutions.DiagnsticoPC`
+   (PFN `GarridoitSolutions.DiagnsticoPC_qketwn0rzx7t0`).
    `Publisher` y `PublisherDisplayName` ya están completos porque son los mismos de tus otras apps.
 4. Guarda el cambio en GitHub (o envía el valor a Claude). GitHub volverá a generar el `.msix`.
 
