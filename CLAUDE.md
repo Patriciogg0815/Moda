@@ -101,8 +101,8 @@ de tipos y alertas que Windows. Detalles en `MonitorRedAndroid/README.md`.
   `GooglePlay-MonitorRed-1.0.N` y prueba en emulador Android 15.
 - Google Play: guía con todos los textos en `MonitorRedAndroid/play/FICHA-PLAY.md`. El `.aab` debe firmarse
   con la **clave de subida** (en la PC, o con los secretos `MONITORRED_KEYSTORE_*` en GitHub). **El repo es
-  público: nunca subir claves.** Política: `https://garridoitsolutions.lat/monitorred-privacidad` (la publica
-  Claude de escritorio, tanda 2).
+  público: nunca subir claves.** Política: `https://garridoitsolutions.lat/monitorred-privacidad` (**publicada** por
+  Claude de escritorio el 27/10/2026, tanda 2).
 - Para compilar en la nube de Claude: Maven Central responde 429; se usa el espejo de Google en
   `~/.gradle/init.d` (solo local) y `-ProbolectricRepo`.
 
@@ -232,7 +232,11 @@ publican desde la PC** (por ejemplo Occultarium): se pisaría lo que está en pr
   - Tanda 1 (**publicada** el 24/10/2026): en `/proyectos`, insignias "Coming Soon" de Google Play, App Store
     y Microsoft Store (`/img/badges/`), tarjetas de Monitor de Red de Casa y RespaldoDrivers, marco blanco en
     todas las insignias (`style.css?v=37`).
-  - Tanda 2 (pendiente): página `/monitorred-privacidad` y la tarjeta del Monitor con Android + Google Play.
+  - Tanda 2 (**publicada** el 27/10/2026, deploy 6ae104a1): página `/monitorred-privacidad` (enlazada en el pie de
+    todas las páginas y en `sitemap.xml`) y la tarjeta del Monitor con Windows · Android + insignias de Microsoft
+    Store y Google Play. Además, tarjeta **Diagnóstico PC** con insignia "Coming Soon" de Microsoft Store.
+  - El sitio se genera con `C:/GarridoItSolutions_build/build_site.py` en la PC (los cambios de la web se integran
+    ahí, no copiando HTML encima).
 - **ConsultaEC** y **Convertir.ec** — ver arriba. El backend Office↔PDF de Convertir.ec corre en Docker en
   el VPS del usuario (lo instala `setup/convertir-api.sh`).
 - **Buzón de sugerencias** (colegio, login con Google del dominio del colegio), **SpeakCoach** (tutor de
@@ -269,7 +273,7 @@ más reciente → Artifacts** (duran 90 días); los de `main` también quedan en
 | Monitor de Red (Windows) | [`MonitorRed/`](https://github.com/Patriciogg0815/Moda/tree/main/MonitorRed) | [monitor-red.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/monitor-red.yml) | Releases tags `monitor-red-v1.0.N` (última `monitor-red-v1.0.37`) · enviada a la Store |
 | Monitor de Red (Android) | [`MonitorRedAndroid/`](https://github.com/Patriciogg0815/Moda/tree/main/MonitorRedAndroid) | [monitor-red-android.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/monitor-red-android.yml) | Artifact `GooglePlay-MonitorRed-1.0.N` · falta firmar y subir a Play |
 | **Diagnóstico PC** (Windows) | rama [`claude/nifty-archimedes-rqs2eo`](https://github.com/Patriciogg0815/Moda/tree/claude/nifty-archimedes-rqs2eo/DiagnosticoPC) | [diagnostico-pc.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/diagnostico-pc.yml) | Última verde: [ejecución 13](https://github.com/Patriciogg0815/Moda/actions/runs/40524257099) → artifacts `DiagnosticoPC-1.0.13` (el `.exe`) y `MicrosoftStore-DiagnosticoPC-1.0.13` (kit con msix, 8 capturas, logos, arte y ficha). Con los arreglos de la prueba del usuario, las actualizaciones de Windows y «Saltar este paso» (ver 2c) |
-| Web garridoitsolutions.lat | [`web-garridoitsolutions/`](https://github.com/Patriciogg0815/Moda/tree/main/web-garridoitsolutions) (instrucciones para Claude de escritorio) | — (se publica desde la PC) | Tanda 1 publicada, tanda 2 pendiente |
+| Web garridoitsolutions.lat | [`web-garridoitsolutions/`](https://github.com/Patriciogg0815/Moda/tree/main/web-garridoitsolutions) (instrucciones para Claude de escritorio) | — (se publica desde la PC) | Tandas 1 y 2 publicadas (27/10/2026) |
 | QuéVeo (Android, versión vieja) | rama [`claude/lucid-wozniak-0g599n`](https://github.com/Patriciogg0815/Moda/tree/claude/lucid-wozniak-0g599n) | — | La versión vigente está en la PC (`C:\pelis`) |
 | Convertir.ec (web) | repo privado https://github.com/Patriciogg0815/convertir-ec | Netlify publica `main` solo | https://convertir-ec.netlify.app/ |
 | ConsultaEC (web) | https://github.com/Patriciogg0815/consultaec | Netlify | https://consultaec.netlify.app/ |
@@ -287,8 +291,8 @@ Ramas (al 24/10/2026): `main` tiene todo lo terminado; `claude/nifty-archimedes-
 
 ## Pendientes (al 24/10/2026)
 
-1. **Claude de escritorio, tanda 2** de `web-garridoitsolutions/INSTRUCCIONES-CLAUDE-ESCRITORIO.md`: publicar
-   `/monitorred-privacidad` y la tarjeta del Monitor con Android (borrador primero).
+1. ~~Claude de escritorio, tanda 2~~ **Hecho el 27/10/2026**: `/monitorred-privacidad` y la tarjeta del Monitor
+   con Android están publicadas en garridoitsolutions.lat.
 2. **Google Play – Monitor de Red Android:** firmar el `.aab` del kit `GooglePlay-MonitorRed-1.0.N` con la clave
    de subida (en la PC) y seguir `MonitorRedAndroid/play/FICHA-PLAY.md` en Play Console.
 3. **Microsoft Store:** esperar la certificación de Monitor de Red de Casa y RespaldoDrivers; cuando aprueben,
@@ -297,7 +301,8 @@ Ramas (al 24/10/2026): `main` tiene todo lo terminado; `claude/nifty-archimedes-
 4. **Diagnóstico PC:** los 4 problemas y la desinstalación de actualizaciones ya están hechos (27/10/2026).
    Nombre reservado e identidad puesta (27/10/2026). Falta: que el usuario pruebe la versión nueva en su PC,
    unir la rama a `main` (PR, para la política de privacidad), enviar a la Store con el kit 1.0.15 o más nuevo y
-   agregar la tarjeta de Diagnóstico PC en garridoitsolutions.lat cuando esté en la Store.
+   cambiar la tarjeta de Diagnóstico PC en garridoitsolutions.lat (ya está con "Coming Soon" desde el 27/10/2026)
+   a "Disponible" con su enlace cuando esté en la Store.
 5. Ideas para después: AdMob en la app de Android; en Windows, seguir vigilando con la ventana cerrada e
    iniciar con Windows; conectores de routers.
 

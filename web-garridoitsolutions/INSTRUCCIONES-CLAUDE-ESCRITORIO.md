@@ -1,6 +1,12 @@
 # Para Claude de escritorio: cambios en garridoitsolutions.lat
 
-## Tanda 2 — PENDIENTE: Monitor de Red para Android (24/10/2026)
+## Tanda 2 — YA PUBLICADA el 27/10/2026: Monitor de Red para Android
+
+> Hecho por Claude de escritorio (deploy 6ae104a1): `/monitorred-privacidad` publicada y enlazada en el pie de
+> todas las páginas y en `sitemap.xml`; tarjeta del Monitor con Windows · Android e insignias de Microsoft Store
+> y Google Play; además, tarjeta de **Diagnóstico PC** con "Coming Soon" de Microsoft Store. Los cambios se
+> integraron en el generador `build_site.py` de la PC. Quedan pendientes los pasos 4 y 5 (firmar el `.aab` y
+> enviarlo a Play Console con Patricio).
 
 Hay una app nueva para Android: **Monitor de Red de Casa** (carpeta `MonitorRedAndroid/` de este repo). Para
 enviarla a Google Play hace falta su política de privacidad publicada en el sitio. Archivos en `tanda-2/`:
