@@ -63,12 +63,12 @@ Partner Center pedirá justificar los dos permisos especiales. Texto sugerido:
 > integradas de Windows (DISM y pnputil) para listar, exportar e instalar los drivers del equipo.
 > Estas herramientas solo están disponibles para aplicaciones de escritorio de plena confianza.
 >
-> **allowElevation:** Exportar los drivers instalados (`pnputil /export-driver`, `Get-WindowsDriver -Online`)
-> e instalar drivers (`pnputil /add-driver /install`) requiere permisos de administrador por diseño de
-> Windows. La aplicación solo pide elevación cuando el usuario la abre, muestra el aviso de Control de
-> cuentas de usuario y no realiza ninguna acción sin que el usuario la inicie. No descarga ni instala
-> nada de internet: solo trabaja con los drivers que ya están en el equipo o en la carpeta que el
-> usuario elige.
+> **allowElevation** (el campo admite **500 caracteres como máximo**; el detalle va en las notas para la certificación):
+> Backing up and reinstalling drivers (pnputil /export-driver, /add-driver /install, DISM /Online) is only allowed by Windows for administrators; no non-elevated API exists. Elevation uses the standard UAC prompt, approved by the user. The app only calls signed Windows tools, downloads nothing, sends no data, checks each backed-up file's SHA-256 before installing, and writes only to the user-chosen folder, %TEMP% (log) and the Driver Store. Details in Notes.
+
+El 29/10/2026 Microsoft rechazó `allowElevation` porque la justificación anterior era muy corta. Pide
+responder: por qué se necesita, qué alternativas se probaron, cómo se limita el acceso, qué protecciones
+hay y en qué carpetas escribe la app. Eso está cubierto en las notas para la certificación (abajo).
 
 ### Donaciones (Ko-fi)
 La app es gratis y tiene un botón opcional "Apoyar a la app" que abre la página de donaciones de Ko-fi en el
@@ -76,11 +76,15 @@ navegador. No desbloquea funciones ni vende contenido, así que no necesita las 
 En **Propiedades** no marques "contiene compras desde la aplicación".
 
 ### Notas para la certificación
-> La aplicación no requiere cuenta ni conexión a internet. Para probarla: abrir la app y aceptar el aviso
-> de administrador → "Respaldar drivers" → elegir una carpeta (por ejemplo, el escritorio) →
-> "Respaldar N drivers". Luego en la pantalla de inicio → "Restaurar drivers" → "Buscar respaldo..." →
-> elegir la carpeta creada → "Instalar N drivers". Los drivers que ya están instalados aparecen como
-> "Sin cambios".
+Pegar tal cual (en inglés, 1.599 caracteres):
+
+```
+allowElevation details: Exporting and installing third-party drivers requires an elevated process (enforced by Windows). Tried: running unelevated (pnputil/DISM return Access denied); packaged APIs (none export/install driver packages); Windows Update (many OEM drivers are no longer published).
+Least privilege: standard UAC prompt; if declined the app closes doing nothing. No services, scheduled tasks, startup entries or direct registry edits. Only Microsoft-signed tools (pnputil, DISM). Nothing downloaded or run from the internet.
+Safeguards: the SHA-256 of every backed-up file is saved in respaldo.json; before installing, the app re-checks it and refuses any driver whose files were changed, removed or added (shown as "Alterado"). Windows also enforces driver signatures. User picks every driver; firmware/BIOS unchecked by default; warning if the backup is from another PC model; safe install order (chipset first); per-driver result shown. No telemetry; only network action is an optional Ko-fi button that opens the browser.
+Assurance: elevation is used only for the pnputil/DISM operations above. Files are written only to the user-selected backup folder (drivers, LEEME.txt, JSON manifest, inventario.csv, log), %TEMP% (log fallback) and the Windows Driver Store via pnputil.
+How to test (no account or internet needed): open the app and accept UAC > "Respaldar drivers" > choose a folder (e.g. Desktop) > "Respaldar N drivers". Then Home > "Restaurar drivers" > "Buscar respaldo..." > pick the created folder > "Instalar N drivers". Drivers already installed show as "Sin cambios".
+```
 
 ## Paso 3 — Política de privacidad
 
@@ -117,6 +121,7 @@ Dirección publicada: https://patriciogg0815.github.io/Moda/store/privacidad.htm
 > **Seguro y sin internet**
 > - Usa las herramientas oficiales de Windows (DISM y pnputil).
 > - No descarga nada de internet ni envía información a ningún servidor.
+> - Comprueba la huella SHA-256 de cada archivo antes de instalar: no instala drivers dañados o modificados.
 > - Las actualizaciones de firmware y BIOS vienen desmarcadas por seguridad.
 > - Avisa si el respaldo es de otro modelo de equipo.
 >
@@ -132,6 +137,7 @@ Dirección publicada: https://patriciogg0815.github.io/Moda/store/privacidad.htm
 - Muestra qué dispositivos no tienen driver
 - Inventario de drivers para Excel con modelo y número de serie del equipo
 - Funciona sin internet y no envía datos
+- Verifica cada archivo con SHA-256 antes de instalar
 - Firmware y BIOS desmarcados por seguridad
 
 **Términos de búsqueda** (máximo 7)

@@ -241,6 +241,64 @@ function Set-DriverStatus($Driver, [string]$Kind, [string]$Text) {
     }
 }
 
+# SHA-256 de un archivo, leído por partes para que la ventana siga respondiendo con drivers grandes
+function Get-FileSha256([string]$Path) {
+    $sha = [Security.Cryptography.SHA256]::Create()
+    $stream = [IO.File]::OpenRead($Path)
+    try {
+        $buffer = New-Object byte[] (4MB)
+        while (($n = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+            [void]$sha.TransformBlock($buffer, 0, $n, $null, 0)
+            Update-UI
+        }
+        [void]$sha.TransformFinalBlock($buffer, 0, 0)
+        [BitConverter]::ToString($sha.Hash).Replace('-', '').ToLowerInvariant()
+    } finally {
+        $stream.Dispose()
+        $sha.Dispose()
+    }
+}
+
+# Archivos que Windows crea solo al abrir una carpeta en el Explorador (no forman parte del driver)
+$script:IgnoredFiles = 'Thumbs.db', 'desktop.ini'
+
+# Archivos de la carpeta de un driver, con la ruta relativa a esa carpeta
+function Get-DriverFiles([string]$Folder) {
+    $Folder = [IO.Path]::GetFullPath($Folder).TrimEnd('\')
+    Get-ChildItem -LiteralPath $Folder -File -Recurse -Force |
+        Where-Object { $script:IgnoredFiles -notcontains $_.Name } |
+        Sort-Object FullName |
+        ForEach-Object { [pscustomobject]@{ Path = $_.FullName.Substring($Folder.Length + 1); FullName = $_.FullName } }
+}
+
+# Huella SHA-256 de cada archivo del driver (se guarda en respaldo.json)
+function Get-DriverHashes([string]$Folder) {
+    foreach ($f in @(Get-DriverFiles $Folder)) {
+        [ordered]@{ Path = $f.Path; Sha256 = Get-FileSha256 $f.FullName }
+    }
+}
+
+# Comprueba que la carpeta del driver tenga exactamente los archivos que se guardaron al respaldar.
+# Devuelve $null si está intacta o el motivo si falta, sobra o cambió algún archivo.
+function Test-DriverIntegrity($Driver) {
+    $expected = @{}
+    foreach ($f in @($Driver.Files)) { $expected[$f.Path] = $f.Sha256 }
+    $actual = @(Get-DriverFiles $Driver.FullPath)
+
+    foreach ($f in $actual) {
+        if (-not $expected.ContainsKey($f.Path)) { return "archivo que no estaba en el respaldo: $($f.Path)" }
+    }
+    if ($actual.Count -ne $expected.Count) {
+        $present = @($actual | ForEach-Object { $_.Path })
+        $missing = @($expected.Keys | Where-Object { $present -notcontains $_ })[0]
+        return "falta el archivo: $missing"
+    }
+    foreach ($f in $actual) {
+        if ((Get-FileSha256 $f.FullName) -ne $expected[$f.Path]) { return "archivo modificado o dañado: $($f.Path)" }
+    }
+    $null
+}
+
 function Test-OnSystemDrive([string]$Path) {
     try {
         [IO.Path]::GetPathRoot([IO.Path]::GetFullPath($Path)).TrimEnd('\') -ieq $env:SystemDrive
@@ -336,6 +394,7 @@ function Get-InstalledDrivers {
             CategoryOrder = $cat.Order
             Devices       = [string[]]@(if ($deviceMap.ContainsKey($key)) { $deviceMap[$key] })
             RelativePath  = $null
+            Files         = $null
         }
     }
     $drivers = @($drivers | Sort-Object CategoryOrder, Provider, InfName)
@@ -378,6 +437,9 @@ function Write-BackupReadme([string]$Destination, $Computer, [object[]]$Drivers)
         "Sistema:     $($Computer.OS) ($($Computer.OSVersion), $($Computer.Architecture))"
         "Creado:      $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
         "Drivers:     $($Drivers.Count)"
+        ''
+        'respaldo.json guarda la huella SHA-256 de cada archivo: al restaurar, la aplicación'
+        'no instala ningún driver cuyos archivos hayan cambiado, falten o se hayan agregado.'
         ''
         'CÓMO INSTALAR LOS DRIVERS DESPUÉS DE FORMATEAR'
         '----------------------------------------------'
@@ -422,12 +484,14 @@ function Invoke-DriverBackup {
 
         try {
             Export-SingleDriver -Driver $drv -Target (Join-Path $Destination $rel)
+            $drv.Files = @(Get-DriverHashes (Join-Path $Destination $rel))
             $drv.RelativePath = $rel
             $ok++
             Set-DriverStatus $drv 'Ok' 'Guardado'
             Write-Log $rel Ok
         } catch {
             $drv.RelativePath = $null
+            $drv.Files = $null
             $failed++
             Set-DriverStatus $drv 'Error' 'Error'
             Write-Log "$($drv.InfName): $($_.Exception.Message)" Error
@@ -455,6 +519,7 @@ function Invoke-DriverBackup {
                 Date          = $_.Date
                 Devices       = @($_.Devices)
                 RelativePath  = $_.RelativePath
+                Files         = @($_.Files)
             }
         })
     }
@@ -510,6 +575,8 @@ function Read-DriverBackup([string]$Path) {
                 Devices       = [string[]]@($d.Devices | Where-Object { $_ })
                 FullPath      = $full
                 Recurse       = $true
+                # Respaldos hechos con versiones anteriores no tienen huellas SHA-256
+                Files         = @($d.Files | Where-Object { $_ })
             })
         }
     } else {
@@ -538,6 +605,7 @@ function Read-DriverBackup([string]$Path) {
                 Devices       = [string[]]@()
                 FullPath      = $dir
                 Recurse       = $false
+                Files         = @()
             })
         }
     }
@@ -558,15 +626,32 @@ function Invoke-DriverRestore {
     )
     Set-LogFile (Join-Path $Root 'registro_instalacion.txt')
     $Drivers = @($Drivers | Sort-Object CategoryOrder, Category, Provider, InfName)
-    $result = [pscustomobject]@{ Installed = 0; Unchanged = 0; Failed = 0; Reboot = $false; MissingBefore = 0; MissingAfter = 0 }
+    $result = [pscustomobject]@{ Installed = 0; Unchanged = 0; Failed = 0; Altered = 0; Reboot = $false; MissingBefore = 0; MissingAfter = 0 }
     $result.MissingBefore = @(Get-DevicesWithoutDriver).Count
     Write-Log "Instalando $($Drivers.Count) drivers. Dispositivos sin driver antes de empezar: $($result.MissingBefore)"
+    $unverified = @($Drivers | Where-Object { -not $_.Files }).Count
+    if ($unverified) {
+        Write-Log "$unverified drivers no tienen huella SHA-256 (carpeta sin respaldo.json o respaldo de una versión anterior): se instalarán sin verificar sus archivos." Warn
+    }
 
     $i = 0
     foreach ($d in $Drivers) {
         $i++
         $label = '{0} \ {1}' -f $d.Category, (Split-Path $d.FullPath -Leaf)
         Set-Progress ($i - 1) $Drivers.Count "Instalando $i de $($Drivers.Count): $label"
+
+        if ($d.Files) {
+            Set-DriverStatus $d 'Info' 'Verificando...'
+            $problem = try { Test-DriverIntegrity $d } catch { "no se pudieron leer los archivos: $($_.Exception.Message)" }
+            if ($problem) {
+                $result.Failed++
+                $result.Altered++
+                Set-DriverStatus $d 'Error' 'Alterado'
+                Write-Log "No se instaló $label porque sus archivos no coinciden con el respaldo ($problem)." Error
+                continue
+            }
+        }
+
         $pnpArgs = @('/add-driver', (Join-Path $d.FullPath '*.inf'))
         if ($d.Recurse) { $pnpArgs += '/subdirs' }
         $pnpArgs += '/install'
@@ -587,6 +672,7 @@ function Invoke-DriverRestore {
 
     Write-Log ('Instalación terminada: {0} instalados, {1} sin cambios, {2} con error. Dispositivos sin driver: {3} -> {4}' -f
         $result.Installed, $result.Unchanged, $result.Failed, $result.MissingBefore, $result.MissingAfter) $(if ($result.Failed) { 'Warn' } else { 'Ok' })
+    if ($result.Altered) { Write-Log "$($result.Altered) drivers no se instalaron porque sus archivos cambiaron desde el respaldo." Warn }
     if ($result.Reboot) { Write-Log 'Es necesario reiniciar el equipo para terminar la instalación.' Warn }
     Set-Progress $Drivers.Count $Drivers.Count 'Instalación terminada.'
     $result
@@ -1724,8 +1810,9 @@ function Start-Restore {
     Invoke-GuiAction 'Instalando drivers...' {
         $res = Invoke-DriverRestore -Drivers $selected -Root $script:Gui.Backup.Path
         Update-MissingStatus
-        $text = "Instalados:   $($res.Installed)`nSin cambios:  $($res.Unchanged)`nCon error:    $($res.Failed)`n`n" +
-            "Dispositivos sin driver: antes $($res.MissingBefore), ahora $($res.MissingAfter)."
+        $text = "Instalados:   $($res.Installed)`nSin cambios:  $($res.Unchanged)`nCon error:    $($res.Failed)`n"
+        if ($res.Altered) { $text += "  ($($res.Altered) no se instalaron porque sus archivos cambiaron desde el respaldo)`n" }
+        $text += "`nDispositivos sin driver: antes $($res.MissingBefore), ahora $($res.MissingAfter)."
         $text += if ($res.Reboot) { "`n`nReinicia el equipo para terminar la instalación." } else { "`n`nSe recomienda reiniciar el equipo." }
         Show-OverlayResult -Kind $(if ($res.Failed) { 'Warn' } else { 'Ok' }) -Title 'Instalación terminada' -Text $text `
             -PrimaryText 'Reiniciar ahora' -PrimaryAction { Restart-Computer -Force } -CloseText 'Más tarde' `
