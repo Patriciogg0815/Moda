@@ -32,7 +32,9 @@ Respalda los drivers del equipo por categoría y los reinstala después de forma
   en `main` publica en Releases.
 - Microsoft Store: carpeta `store/` (manifiesto, íconos, logos de 300/150/71, arte de superhéroe 16:9,
   `privacidad.html`, `FICHA-TIENDA.md`). Identidad: `GarridoitSolutions.RespaldoDrivers`.
-  **Ya enviada a la Store** (en certificación al 24/10/2026, según el usuario).
+  **Ya enviada a la Store** (en certificación al 24/10/2026, según el usuario). **Rechazada el 29/10/2026**: en el
+  PR #16 se agregó la verificación SHA-256 de los drivers antes de instalar (`respaldo.json`; los alterados no se
+  instalan) y se reescribió la justificación de `allowElevation` (máx. 500 caracteres) y las notas de certificación.
 - Tiene el botón "Apoyar a la app" (Ko-fi). Se quitó el `.bat`: el `.exe` es la única forma de usarla.
 - Historia: rama `claude/ecstatic-sagan-19fwe0`, unida a `main` en el PR #1.
 
@@ -151,6 +153,7 @@ y tenía programas que no la dejaban suspender). Muestra cada revisión en rojo/
   2. "596523 horas" para hibernar: valores ≥ 30 días (`$script:NeverSeconds`) se tratan como "Nunca".
   3. Driver de video: solo se revisan adaptadores `PCI\` (se ignora "MS Idd Device"); en VM, todos.
   4. "HP HP ZBook": `Remove-BrandPrefix` quita la marca del modelo.
+  6. (PR #15, 29/10/2026) No avisa de programas que Windows ya ignora al suspender.
 - **Desinstalar actualizaciones de Windows (hecho el 27/10/2026)**: revisión `Test-WindowsUpdates` (id
   `actualizaciones`, área Sistema).
   - Lista: `Get-HotFix` + historial de Windows Update (COM `Microsoft.Update.Session`). Cada una con
@@ -269,7 +272,7 @@ más reciente → Artifacts** (duran 90 días); los de `main` también quedan en
 | RespaldoDrivers (Windows) | [`RespaldoDrivers/`](https://github.com/Patriciogg0815/Moda/tree/main/RespaldoDrivers) + [`store/`](https://github.com/Patriciogg0815/Moda/tree/main/store) | [compilar-exe.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/compilar-exe.yml) | [Releases](https://github.com/Patriciogg0815/Moda/releases) tags `v1.0.N` · enviada a la Store (en certificación) |
 | Monitor de Red (Windows) | [`MonitorRed/`](https://github.com/Patriciogg0815/Moda/tree/main/MonitorRed) | [monitor-red.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/monitor-red.yml) | Releases tags `monitor-red-v1.0.N` (última `monitor-red-v1.0.37`) · enviada a la Store |
 | Monitor de Red (Android) | [`MonitorRedAndroid/`](https://github.com/Patriciogg0815/Moda/tree/main/MonitorRedAndroid) | [monitor-red-android.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/monitor-red-android.yml) | Artifact `GooglePlay-MonitorRed-1.0.N` · falta firmar y subir a Play |
-| **Diagnóstico PC** (Windows) | [`DiagnosticoPC/`](https://github.com/Patriciogg0815/Moda/tree/main/DiagnosticoPC) | [diagnostico-pc.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/diagnostico-pc.yml) | Releases tags `diagnostico-pc-v1.0.N` (primera en `main`: `diagnostico-pc-v1.0.17`) · artifact `MicrosoftStore-DiagnosticoPC-1.0.N` (kit con msix, 8 capturas, logos, arte y ficha; 1.0.15 o más nuevo para la Store) · en envío a la Store |
+| **Diagnóstico PC** (Windows) | [`DiagnosticoPC/`](https://github.com/Patriciogg0815/Moda/tree/main/DiagnosticoPC) | [diagnostico-pc.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/diagnostico-pc.yml) | Releases tags `diagnostico-pc-v1.0.N` (última: [`diagnostico-pc-v1.0.26`](https://github.com/Patriciogg0815/Moda/releases/tag/diagnostico-pc-v1.0.26), 29/10/2026) · artifact `MicrosoftStore-DiagnosticoPC-1.0.N` (kit con msix, 8 capturas, logos, arte y ficha; 1.0.15 o más nuevo para la Store) · en envío a la Store |
 | Web garridoitsolutions.lat | [`web-garridoitsolutions/`](https://github.com/Patriciogg0815/Moda/tree/main/web-garridoitsolutions) (instrucciones para Claude de escritorio) | — (se publica desde la PC) | Tanda 1 publicada, tanda 2 pendiente |
 | QuéVeo (Android, versión vieja) | rama [`claude/lucid-wozniak-0g599n`](https://github.com/Patriciogg0815/Moda/tree/claude/lucid-wozniak-0g599n) | — | La versión vigente está en la PC (`C:\pelis`) |
 | Convertir.ec (web) | repo privado https://github.com/Patriciogg0815/convertir-ec | Netlify publica `main` solo | https://convertir-ec.netlify.app/ |
@@ -284,7 +287,7 @@ Ramas (al 27/10/2026): `main` tiene todo lo terminado (Diagnóstico PC incluido,
 `claude/project-thread-hfo1sm` y `claude/project-thread-uf9bcg` = versiones viejas del Monitor sin publicidad
 (no unir: se decidió mantener la publicidad). Las demás ramas ya están unidas a `main`.
 
-## Pendientes (al 24/10/2026)
+## Pendientes (al 01/11/2026)
 
 1. **Claude de escritorio, tanda 2** de `web-garridoitsolutions/INSTRUCCIONES-CLAUDE-ESCRITORIO.md`: publicar
    `/monitorred-privacidad` y la tarjeta del Monitor con Android (borrador primero).
