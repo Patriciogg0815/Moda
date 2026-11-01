@@ -948,10 +948,38 @@ function Get-PowerRequests {
     $list
 }
 
+# Lee "powercfg /requestsoverride": a quién ya no le hace caso Windows. "powercfg /requests" los sigue
+# mostrando aunque estén ignorados, así que hay que descontarlos. Clave "TIPO|nombre" en minúsculas.
+function Get-PowerOverrides {
+    $map = @{}
+    try { $out = Invoke-PowerCfg @('/requestsoverride') } catch { return $map }
+    $type = ''
+    foreach ($raw in "$out" -split "`r?`n") {
+        $line = $raw.Trim()
+        if (-not $line) { continue }
+        if ($line -match '^\[([A-Z]+)\]$') { $type = $Matches[1]; continue }
+        if ($type -and $line -match '^(.+?)((?:\s+(?:DISPLAY|SYSTEM|AWAYMODE|EXECUTION))+)$') {
+            $map["$type|$($Matches[1].Trim())".ToLower()] = @($Matches[2].Trim() -split '\s+')
+        }
+    }
+    $map
+}
+
 function Test-SleepBlockers {
     $display = 'DISPLAY', 'PANTALLA'
     $reqs = @(Get-PowerRequests | Where-Object { $_.Section -notin 'PERFBOOST', 'ACTIVELOCKSCREEN' })
-    $blocking = @($reqs | Where-Object { $_.Section -notin $display })
+    $overrides = Get-PowerOverrides
+    foreach ($r in $reqs) {
+        $leaf = if ($r.Name -match '\\') { Split-Path $r.Name -Leaf } else { $r.Name }
+        $key = if ($leaf -match '\.exe$') { "PROCESS|$leaf" } elseif ($r.Type -match 'SERV') { "SERVICE|$($r.Name)" } else { "DRIVER|$($r.Name)" }
+        $token = switch -Regex ($r.Section) {
+            '^(DISPLAY|PANTALLA)$' { 'DISPLAY' } '^(SYSTEM|SISTEMA)$' { 'SYSTEM' }
+            'AWAY|AUSENTE' { 'AWAYMODE' } '^(EXECUTION|EJECUCI)' { 'EXECUTION' } default { $r.Section }
+        }
+        $r | Add-Member -NotePropertyName Ignored -NotePropertyValue ($overrides[$key.ToLower()] -contains $token) -Force
+    }
+    $blocking = @($reqs | Where-Object { $_.Section -notin $display -and -not $_.Ignored })
+    $ignored = 0
     $steps = @(
         New-Step -Title 'Mira qué lo impide' `
             -Text 'La lista de esta revisión muestra lo que ahora mismo no deja dormir a la PC. Suele ser el navegador con un video o música, una videollamada, una descarga, una impresión o un programa de sincronización.'
@@ -961,24 +989,25 @@ function Test-SleepBlockers {
             -Command 'powercfg /requestsoverride PROCESS chrome.exe SYSTEM AWAYMODE EXECUTION' `
             -Text 'Presiona «Que no impida suspender» en la lista: Windows ignorará sus pedidos de mantener la PC despierta. Equivale a escribir este comando como administrador (cambia chrome.exe por el programa):'
         New-Step -Title 'Compruébalo tú mismo' -Path $script:CmdAdminPath -Command 'powercfg /requests' `
-            -Text 'Este comando muestra la lista actualizada. Si debajo de SYSTEM dice «Ninguno», nada impide la suspensión.'
+            -Text 'Este comando muestra la lista actualizada. Si debajo de SYSTEM dice «Ninguno», nada impide la suspensión. Los programas que Windows ya ignora siguen apareciendo ahí; para verlos usa «powercfg /requestsoverride».'
     )
     $items = @()
     foreach ($grp in $reqs | Group-Object Name) {
         $r = $grp.Group[0]
         $isDisplayOnly = -not ($grp.Group | Where-Object { $_.Section -notin $display })
-        $what = if ($isDisplayOnly) { 'Mantiene la pantalla encendida' } else { 'No deja que la PC se suspenda' }
+        $isIgnored = -not $isDisplayOnly -and -not ($grp.Group | Where-Object { $_.Section -notin $display -and -not $_.Ignored })
+        if ($isIgnored) { $ignored++ }
+        $what = if ($isIgnored) { 'Lo pide, pero Windows lo ignora y la PC sí se suspende' } elseif ($isDisplayOnly) { 'Mantiene la pantalla encendida' } else { 'No deja que la PC se suspenda' }
         $detail = if ($r.Reason) { "$what · $($r.Reason)" } else { $what }
         $leaf = if ($r.Name -match '\\') { Split-Path $r.Name -Leaf } else { $r.Name }
+        $ignore = if ($isIgnored) { @{} } else { @{ Action2 = 'ignorar-bloqueo'; Action2Text = 'Que no impida suspender' } }
         if ($leaf -match '\.exe$') {
-            $items += New-FindingItem -Name $leaf -Detail $detail -Action 'cerrar-programa' -ActionText 'Cerrar' `
-                -Action2 'ignorar-bloqueo' -Action2Text 'Que no impida suspender' `
+            $items += New-FindingItem -Name $leaf -Detail $detail -Action 'cerrar-programa' -ActionText 'Cerrar' @ignore `
                 -Arg @{ Type = 'PROCESS'; Name = $leaf; Process = [IO.Path]::GetFileNameWithoutExtension($leaf) }
         } else {
             $type = if ($r.Type -match 'SERV') { 'SERVICE' } else { 'DRIVER' }
             $kind = if ($type -eq 'SERVICE') { 'Servicio' } else { 'Driver' }
-            $items += New-FindingItem -Name "$kind`: $($r.Name)" -Detail $detail -Action2 'ignorar-bloqueo' -Action2Text 'Que no impida suspender' `
-                -Arg @{ Type = $type; Name = $r.Name }
+            $items += New-FindingItem -Name "$kind`: $($r.Name)" -Detail $detail @ignore -Arg @{ Type = $type; Name = $r.Name }
         }
     }
     if ($blocking.Count) {
@@ -989,7 +1018,11 @@ function Test-SleepBlockers {
             -Detail 'Ahora mismo hay programas o drivers que le piden a Windows que no se suspenda. Mientras sigan así, aunque cierres la tapa o dejes la PC sin usar, puede quedarse despierta, calentarse y gastar batería. Es normal mientras ves un video o descargas algo, pero no si ya no los estás usando.' `
             -Steps $steps -Items $items
     }
-    $summary = if ($items.Count) { "Solo $(Get-Plural $items.Count 'programa mantiene' 'programas mantienen') la pantalla encendida" } else { 'Ahora mismo nada mantiene despierta la PC' }
+    $parts = @()
+    if ($ignored) { $parts += "Windows ignora a $(Get-Plural $ignored 'programa que pide' 'programas que piden') no suspender" }
+    $screen = $items.Count - $ignored
+    if ($screen) { $parts += "Solo $(Get-Plural $screen 'programa mantiene' 'programas mantienen') la pantalla encendida" }
+    $summary = if ($parts) { $parts -join ' · ' } else { 'Ahora mismo nada mantiene despierta la PC' }
     New-Finding -Id 'bloqueos-suspension' -Area 'Energía' -Level Verde -Title 'Nada impide la suspensión' -Summary $summary `
         -Detail 'Ningún programa ni driver le pide a Windows que la PC siga despierta. (Mantener la pantalla encendida mientras ves un video es normal.)' `
         -Steps $steps -Items $items

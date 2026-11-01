@@ -119,14 +119,24 @@ function Invoke-PowerCfg([string[]]$Arguments) {
             "[PROCESS] \Device\HarddiskVolume3\Users\Ana\AppData\Local\Microsoft\Teams\current\Teams.exe`r`nLlamada en curso`r`n`r`n" +
             "AWAYMODE:`r`nNinguno.`r`n`r`nEXECUTION:`r`nNinguno.`r`n`r`nPERFBOOST:`r`nNinguno.`r`n"
     }
+    if ($Arguments[0] -eq '/requestsoverride' -and $Arguments.Count -eq 1) { return $script:FakeOverrides }
     & $realPowerCfg $Arguments
 }
+$script:FakeOverrides = "[SERVICE]`r`n`r`n[PROCESS]`r`n`r`n[DRIVER]`r`n"
 $req = @(Get-PowerRequests)
 Assert ($req.Count -eq 3) "Lee los pedidos de energía ($($req.Count))"
 $sb = Test-SleepBlockers
 Assert ($sb.Level -eq 'Amarillo' -and $sb.Items.Count -eq 3) "Programas que no dejan suspender: $($sb.Title)"
 $teams = $sb.Items | Where-Object { $_.Name -eq 'Teams.exe' }
 Assert ($teams.Action -eq 'cerrar-programa' -and $teams.Arg.Type -eq 'PROCESS' -and $teams.Action2 -eq 'ignorar-bloqueo') 'Teams.exe se puede cerrar o ignorar'
+# Lo que ya se ignoró con «Que no impida suspender» sigue en "powercfg /requests", pero no debe contar
+$script:FakeOverrides = "[SERVICE]`r`n`r`n[PROCESS]`r`nteams.exe SYSTEM AWAYMODE EXECUTION`r`n`r`n[DRIVER]`r`n"
+$sb = Test-SleepBlockers
+$teams = $sb.Items | Where-Object { $_.Name -eq 'Teams.exe' }
+Assert ($sb.Level -eq 'Amarillo' -and $sb.Title -match '^1 programa' -and -not $teams.Action2) "Descuenta lo ignorado: $($sb.Title)"
+$script:FakeOverrides = "[SERVICE]`r`n`r`n[PROCESS]`r`nTeams.exe SYSTEM AWAYMODE EXECUTION`r`n`r`n[DRIVER]`r`nRealtek High Definition Audio (HDAUDIO\FUNC_01&VEN_10EC) SYSTEM AWAYMODE EXECUTION`r`n"
+$sb = Test-SleepBlockers
+Assert ($sb.Level -eq 'Verde' -and $sb.Items.Count -eq 3 -and $sb.Summary -match 'Windows ignora a 2') "Todo ignorado queda en verde: $($sb.Summary)"
 Set-Item function:Invoke-PowerCfg $realPowerCfg
 
 # Registro con deshacer (en una clave de prueba)
