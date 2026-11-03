@@ -149,6 +149,18 @@ jobs:
           name: MicrosoftStore-DiagnosticoPC-${{ env.VERSION }}
           path: dist-store/kit/
 
+      # El mismo kit, armado como en la PC del usuario (sin GitHub)
+      - name: Probar Armar-Kit-Store.ps1
+        shell: powershell
+        run: |
+          .\DiagnosticoPC\Armar-Kit-Store.ps1 -Version 1.0.9999 -Salida dist-local -SinPausa
+          foreach ($f in 'DiagnosticoPC.msix', 'exe\DiagnosticoPC.exe', 'FICHA-TIENDA.md', 'privacidad.html', 'LogoTienda-300x300.png', 'ArteSuperheroe-3840x2160.png') {
+            if (-not (Test-Path "dist-local\$f")) { throw "Falta $f en el kit armado localmente" }
+          }
+          $capturas = @(Get-ChildItem dist-local\capturas\*.png).Count
+          if ($capturas -ne 8) { throw "Se esperaban 8 capturas y hay $capturas" }
+          Write-Host 'OK: Armar-Kit-Store.ps1 arma el kit completo'
+
       - name: Publicar versión
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2

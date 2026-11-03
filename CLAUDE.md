@@ -135,6 +135,12 @@ y tenía programas que no la dejaban suspender). Muestra cada revisión en rojo/
   `GarridoitSolutions.DiagnsticoPC_qketwn0rzx7t0`), ya en `store/identidad.json`: sirve el kit 1.0.15 o más nuevo.
   Política de privacidad ya publicada en GitHub Pages. El usuario está haciendo el envío en Partner Center
   (27/10/2026).
+- **Armar en la PC, sin GitHub (pedido del usuario, 03/11/2026):** `DiagnosticoPC/Armar-Kit-Store.ps1` (clic derecho →
+  Ejecutar con PowerShell) instala ps2exe y el Windows SDK si faltan, y deja en el Escritorio
+  `DiagnosticoPC-Store-1.0.N` con el `.msix`, el `.exe`, las capturas (`store/capturas/`, copiadas del kit 1.0.26),
+  logos, arte, ficha y privacidad. Versión local desde 1.0.100 (guarda la última en
+  `%APPDATA%\DiagnosticoPC-Kit\ultima-version.txt`). CI lo prueba en `diagnostico-pc.yml`. El 03/11/2026 se le
+  envió el kit 1.0.26 directamente por el chat (el `.msix` con la identidad correcta).
 - Limitación conocida: no identifica el driver exacto de una pantalla azul (necesitaría WinDbg); da la
   causa por el código del error.
 - **Prueba del usuario en su PC (24/10/2026, v1.0.9, HP ZBook Power 15.6 G10, Windows 11 Pro 26H2)**: resultado
@@ -330,3 +336,28 @@ Ramas (al 27/10/2026): `main` tiene todo lo terminado (Diagnóstico PC incluido,
   «No repository with the name 'PSGallery'»). Si `Install-Module` falla, los workflows descargan el paquete
   directamente (`api/v2/package/ps2exe`, y si no la 1.0.17) y lo copian a la carpeta de módulos.
 - Los `.exe` no están firmados: en el README se explica "Más información → Ejecutar de todas formas".
+
+## Armar en la PC del usuario, sin GitHub (pedido del usuario, 03/11/2026: «para todos los chats»)
+
+El usuario quiere que el `.exe`, el `.msix` y el kit de la Store se puedan armar **en su PC**, sin depender de
+GitHub (Actions, Artifacts ni Releases). Aplica a **todas** las apps de Windows; cuando lo pida para otra app,
+copiar el mismo esquema.
+
+- **Plantilla:** `DiagnosticoPC/Armar-Kit-Store.ps1`. Clic derecho → **Ejecutar con PowerShell**. Hace:
+  1. Instala ps2exe si falta (`Install-Module`; si falla, descarga `api/v2/package/ps2exe` y lo copia a
+     `Documentos\WindowsPowerShell\Modules\ps2exe`).
+  2. Instala el Windows SDK si falta `makeappx.exe` (`winget install --id Microsoft.WindowsSDK.10.0.26100`; si no
+     se puede, explica cómo descargarlo).
+  3. Llama a `Crear-EXE.ps1` (normal y `-EdicionStore`) y a `store/Crear-MSIX.ps1`.
+  4. Copia logos, arte, `FICHA-TIENDA.md`, `privacidad.html` y las capturas guardadas en `store/capturas/`.
+  5. Deja todo en `Escritorio\<App>-Store-1.0.N` y abre la carpeta. La versión empieza en 1.0.100 (por encima
+     de las de GitHub) y sube sola en cada uso (`%APPDATA%\<App>-Kit\ultima-version.txt`), porque la Store exige
+     una versión mayor en cada envío. Parámetros: `-Version`, `-Salida`, `-SinPausa` (para CI).
+- Para otra app: copiar el script, cambiar los nombres (`DiagnosticoPC` → la app), guardar sus capturas de la Store en
+  `<app>/store/capturas/` (sacarlas del artifact del kit) y agregar el paso «Probar Armar-Kit-Store.ps1» a su
+  workflow, como en `diagnostico-pc.yml`. Monitor de Red además necesita `-Fabricantes` y `-WebView2` en
+  `Crear-EXE.ps1` (preparar esos archivos con sus scripts `Preparar-*.ps1`).
+- Los `.ps1` van en UTF-8 **con BOM** y CRLF (PowerShell 5.1).
+- Para entregarle archivos sin GitHub desde la nube: descargarlos aquí y mandarlos por el chat (SendUserFile), por
+  ejemplo el `.msix` o el kit en `.zip`. La PC "Casa" (Windows) todavía no se puede conectar a las sesiones en la nube.
+- Hoy solo Diagnóstico PC tiene el script; RespaldoDrivers y Monitor de Red, cuando el usuario lo pida.
