@@ -17,6 +17,11 @@ Dentro vienen:
 > ⚠️ Usa el kit **1.0.15 o más nuevo** (el primero con la identidad correcta). Los anteriores sirven para probar,
 > pero Partner Center lo rechaza con un error de identidad.
 
+### O ármalo en tu PC, sin GitHub
+En la carpeta `DiagnosticoPC`, clic derecho en **`Armar-Kit-Store.ps1`** → **Ejecutar con PowerShell**. Deja en el
+Escritorio la carpeta `DiagnosticoPC-Store-1.0.N` con lo mismo que el kit (el `.msix`, las capturas, los logos, el
+arte y esta ficha). Las capturas salen de `store/capturas/`.
+
 ## Archivos de esta carpeta
 
 Misma estructura que `store/` de RespaldoDrivers y del Monitor de Red:

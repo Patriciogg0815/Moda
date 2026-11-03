@@ -16,6 +16,17 @@ programas que no la dejaban suspenderse.
 3. Elige un resultado de la lista: arriba dice qué pasa; abajo están los botones **Arreglar**,
    **Ver el paso a paso** y **Volver a revisar**.
 
+## Armar el .exe y el kit de la Store en tu PC (sin GitHub)
+
+1. Copia la carpeta `DiagnosticoPC` completa a tu PC (por ejemplo a `C:\DiagnosticoPC`).
+2. Clic derecho en **`Armar-Kit-Store.ps1`** → **Ejecutar con PowerShell**.
+3. La primera vez instala lo que falta (ps2exe y el Windows SDK, que puede tardar varios minutos).
+4. Al terminar se abre la carpeta **`DiagnosticoPC-Store-1.0.N`** en el Escritorio con:
+   `DiagnosticoPC.msix` (para Partner Center → **Paquetes**), `exe\DiagnosticoPC.exe`, `capturas\`, los logos,
+   el arte, `FICHA-TIENDA.md` y `privacidad.html`.
+
+Cada vez que lo ejecutas usa un número de versión mayor (empieza en 1.0.100), como exige la Store.
+
 ## Qué revisa
 
 | Área | Revisiones | Arreglos automáticos |
@@ -48,7 +59,8 @@ ventana y sin preguntar por permisos). La edición de la Store no tiene esa opci
 | `DiagnosticoPC.ps1` | Toda la app (PowerShell 5.1 + WPF). También funciona sin compilar |
 | `Crear-EXE.ps1` | Compila el `.exe` con ps2exe (`-EdicionStore` para la Store) |
 | `icono.ico` | Ícono de la app |
-| `store/` | Kit para la Microsoft Store: manifiesto, logos, arte, privacidad y la ficha con todos los textos (`FICHA-TIENDA.md`) |
+| `Armar-Kit-Store.ps1` | Arma en tu PC el `.exe`, el `.msix` y el kit completo de la Store, sin GitHub |
+| `store/` | Kit para la Microsoft Store: manifiesto, logos, arte, capturas (`capturas/`), privacidad y la ficha con todos los textos (`FICHA-TIENDA.md`) |
 
 Datos de la app: `%APPDATA%\DiagnosticoPC\` (`ajustes.json`, `cambios.json`, `registro.txt` e informes).
 

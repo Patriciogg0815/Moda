@@ -32,7 +32,9 @@ Respalda los drivers del equipo por categoría y los reinstala después de forma
   en `main` publica en Releases.
 - Microsoft Store: carpeta `store/` (manifiesto, íconos, logos de 300/150/71, arte de superhéroe 16:9,
   `privacidad.html`, `FICHA-TIENDA.md`). Identidad: `GarridoitSolutions.RespaldoDrivers`.
-  **Ya enviada a la Store** (en certificación al 24/10/2026, según el usuario).
+  **Ya enviada a la Store** (en certificación al 24/10/2026, según el usuario). **Rechazada el 29/10/2026**: en el
+  PR #16 se agregó la verificación SHA-256 de los drivers antes de instalar (`respaldo.json`; los alterados no se
+  instalan) y se reescribió la justificación de `allowElevation` (máx. 500 caracteres) y las notas de certificación.
 - Tiene el botón "Apoyar a la app" (Ko-fi). Se quitó el `.bat`: el `.exe` es la única forma de usarla.
 - Historia: rama `claude/ecstatic-sagan-19fwe0`, unida a `main` en el PR #1.
 
@@ -106,7 +108,7 @@ de tipos y alertas que Windows. Detalles en `MonitorRedAndroid/README.md`.
 - Para compilar en la nube de Claude: Maven Central responde 429; se usa el espejo de Google en
   `~/.gradle/init.d` (solo local) y `-ProbolectricRepo`.
 
-### 2c. Diagnóstico PC (Windows) — rama `claude/nifty-archimedes-rqs2eo` (todavía **no** está en `main`)
+### 2c. Diagnóstico PC (Windows) — en `main` (PR #12, 27/10/2026)
 
 Autodiagnóstico de Windows (idea del usuario: su laptop se calentaba en la mochila porque no hibernaba bien
 y tenía programas que no la dejaban suspender). Muestra cada revisión en rojo/amarillo/verde, con botón
@@ -131,7 +133,14 @@ y tenía programas que no la dejaban suspender). Muestra cada revisión en rojo/
   todos los textos. Kit: artifact `MicrosoftStore-DiagnosticoPC-1.0.N`. Nombre **reservado** el 27/10/2026:
   "Diagnóstico PC", identidad `GarridoitSolutions.DiagnsticoPC` (sin la «ó», así la generó Partner Center; PFN
   `GarridoitSolutions.DiagnsticoPC_qketwn0rzx7t0`), ya en `store/identidad.json`: sirve el kit 1.0.15 o más nuevo.
-  **Pendiente:** unir la rama a `main` para que se publique la política de privacidad en GitHub Pages.
+  Política de privacidad ya publicada en GitHub Pages. El usuario está haciendo el envío en Partner Center
+  (27/10/2026).
+- **Armar en la PC, sin GitHub (pedido del usuario, 03/11/2026):** `DiagnosticoPC/Armar-Kit-Store.ps1` (clic derecho →
+  Ejecutar con PowerShell) instala ps2exe y el Windows SDK si faltan, y deja en el Escritorio
+  `DiagnosticoPC-Store-1.0.N` con el `.msix`, el `.exe`, las capturas (`store/capturas/`, copiadas del kit 1.0.26),
+  logos, arte, ficha y privacidad. Versión local desde 1.0.100 (guarda la última en
+  `%APPDATA%\DiagnosticoPC-Kit\ultima-version.txt`). CI lo prueba en `diagnostico-pc.yml`. El 03/11/2026 se le
+  envió el kit 1.0.26 directamente por el chat (el `.msix` con la identidad correcta).
 - Limitación conocida: no identifica el driver exacto de una pantalla azul (necesitaría WinDbg); da la
   causa por el código del error.
 - **Prueba del usuario en su PC (24/10/2026, v1.0.9, HP ZBook Power 15.6 G10, Windows 11 Pro 26H2)**: resultado
@@ -150,6 +159,7 @@ y tenía programas que no la dejaban suspender). Muestra cada revisión en rojo/
   2. "596523 horas" para hibernar: valores ≥ 30 días (`$script:NeverSeconds`) se tratan como "Nunca".
   3. Driver de video: solo se revisan adaptadores `PCI\` (se ignora "MS Idd Device"); en VM, todos.
   4. "HP HP ZBook": `Remove-BrandPrefix` quita la marca del modelo.
+  6. (PR #15, 29/10/2026) No avisa de programas que Windows ya ignora al suspender.
 - **Desinstalar actualizaciones de Windows (hecho el 27/10/2026)**: revisión `Test-WindowsUpdates` (id
   `actualizaciones`, área Sistema).
   - Lista: `Get-HotFix` + historial de Windows Update (COM `Microsoft.Update.Session`). Cada una con
@@ -272,7 +282,7 @@ más reciente → Artifacts** (duran 90 días); los de `main` también quedan en
 | RespaldoDrivers (Windows) | [`RespaldoDrivers/`](https://github.com/Patriciogg0815/Moda/tree/main/RespaldoDrivers) + [`store/`](https://github.com/Patriciogg0815/Moda/tree/main/store) | [compilar-exe.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/compilar-exe.yml) | [Releases](https://github.com/Patriciogg0815/Moda/releases) tags `v1.0.N` · enviada a la Store (en certificación) |
 | Monitor de Red (Windows) | [`MonitorRed/`](https://github.com/Patriciogg0815/Moda/tree/main/MonitorRed) | [monitor-red.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/monitor-red.yml) | Releases tags `monitor-red-v1.0.N` (última `monitor-red-v1.0.37`) · enviada a la Store |
 | Monitor de Red (Android) | [`MonitorRedAndroid/`](https://github.com/Patriciogg0815/Moda/tree/main/MonitorRedAndroid) | [monitor-red-android.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/monitor-red-android.yml) | Artifact `GooglePlay-MonitorRed-1.0.N` · falta firmar y subir a Play |
-| **Diagnóstico PC** (Windows) | rama [`claude/nifty-archimedes-rqs2eo`](https://github.com/Patriciogg0815/Moda/tree/claude/nifty-archimedes-rqs2eo/DiagnosticoPC) | [diagnostico-pc.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/diagnostico-pc.yml) | Última verde: [ejecución 13](https://github.com/Patriciogg0815/Moda/actions/runs/40524257099) → artifacts `DiagnosticoPC-1.0.13` (el `.exe`) y `MicrosoftStore-DiagnosticoPC-1.0.13` (kit con msix, 8 capturas, logos, arte y ficha). Con los arreglos de la prueba del usuario, las actualizaciones de Windows y «Saltar este paso» (ver 2c) |
+| **Diagnóstico PC** (Windows) | [`DiagnosticoPC/`](https://github.com/Patriciogg0815/Moda/tree/main/DiagnosticoPC) | [diagnostico-pc.yml](https://github.com/Patriciogg0815/Moda/actions/workflows/diagnostico-pc.yml) | Releases tags `diagnostico-pc-v1.0.N` (última: [`diagnostico-pc-v1.0.26`](https://github.com/Patriciogg0815/Moda/releases/tag/diagnostico-pc-v1.0.26), 29/10/2026) · artifact `MicrosoftStore-DiagnosticoPC-1.0.N` (kit con msix, 8 capturas, logos, arte y ficha; 1.0.15 o más nuevo para la Store) · en envío a la Store |
 | Web garridoitsolutions.lat | [`web-garridoitsolutions/`](https://github.com/Patriciogg0815/Moda/tree/main/web-garridoitsolutions) (instrucciones para Claude de escritorio) | — (se publica desde la PC) | Tandas 1 y 2 publicadas (27/10/2026) |
 | QuéVeo (Android, versión vieja) | rama [`claude/lucid-wozniak-0g599n`](https://github.com/Patriciogg0815/Moda/tree/claude/lucid-wozniak-0g599n) | — | La versión vigente está en la PC (`C:\pelis`) |
 | Convertir.ec (web) | repo privado https://github.com/Patriciogg0815/convertir-ec | Netlify publica `main` solo | https://convertir-ec.netlify.app/ |
@@ -281,15 +291,13 @@ más reciente → Artifacts** (duran 90 días); los de `main` también quedan en
 Políticas de privacidad publicadas con GitHub Pages desde `main`:
 - RespaldoDrivers: https://patriciogg0815.github.io/Moda/store/privacidad.html
 - Monitor de Red: https://patriciogg0815.github.io/Moda/MonitorRed/store/privacidad.html
-- Diagnóstico PC: https://patriciogg0815.github.io/Moda/DiagnosticoPC/store/privacidad.html (**funcionará
-  cuando la rama de Diagnóstico PC se una a `main`**)
+- Diagnóstico PC: https://patriciogg0815.github.io/Moda/DiagnosticoPC/store/privacidad.html
 
-Ramas (al 24/10/2026): `main` tiene todo lo terminado; `claude/nifty-archimedes-rqs2eo` = Diagnóstico PC
-(sin unir); `claude/lucid-wozniak-0g599n` y `claude/movie-series-recommender-app-unh84n` = QuéVeo viejo;
+Ramas (al 27/10/2026): `main` tiene todo lo terminado (Diagnóstico PC incluido, PR #12); `claude/lucid-wozniak-0g599n` y `claude/movie-series-recommender-app-unh84n` = QuéVeo viejo;
 `claude/project-thread-hfo1sm` y `claude/project-thread-uf9bcg` = versiones viejas del Monitor sin publicidad
 (no unir: se decidió mantener la publicidad). Las demás ramas ya están unidas a `main`.
 
-## Pendientes (al 24/10/2026)
+## Pendientes (al 01/11/2026)
 
 1. ~~Claude de escritorio, tanda 2~~ **Hecho el 27/10/2026**: `/monitorred-privacidad` y la tarjeta del Monitor
    con Android están publicadas en garridoitsolutions.lat.
@@ -299,10 +307,10 @@ Ramas (al 24/10/2026): `main` tiene todo lo terminado; `claude/nifty-archimedes-
    cambiar sus insignias "Coming Soon" en garridoitsolutions.lat por las de "Disponible" con su enlace, y
    enviar la actualización del Monitor con alertas (kit 1.0.37 o más nuevo).
 4. **Diagnóstico PC:** los 4 problemas y la desinstalación de actualizaciones ya están hechos (27/10/2026).
-   Nombre reservado e identidad puesta (27/10/2026). Falta: que el usuario pruebe la versión nueva en su PC,
-   unir la rama a `main` (PR, para la política de privacidad), enviar a la Store con el kit 1.0.15 o más nuevo y
-   cambiar la tarjeta de Diagnóstico PC en garridoitsolutions.lat (ya está con "Coming Soon" desde el 27/10/2026)
-   a "Disponible" con su enlace cuando esté en la Store.
+   Nombre reservado, identidad puesta y rama unida a `main` (PR #12, 27/10/2026). Falta: que el usuario pruebe
+   la versión nueva en su PC, terminar el envío a la Store (kit 1.0.15 o más nuevo; si la rechazan, traer el
+   informe de Partner Center) y cambiar la tarjeta de Diagnóstico PC en garridoitsolutions.lat (ya está con
+   "Coming Soon" desde el 27/10/2026) a "Disponible" con su enlace cuando esté en la Store.
 5. Ideas para después: AdMob en la app de Android; en Windows, seguir vigilando con la ventana cerrada e
    iniciar con Windows; conectores de routers.
 
@@ -324,4 +332,32 @@ Ramas (al 24/10/2026): `main` tiene todo lo terminado; `claude/nifty-archimedes-
 - Apps de Windows: un `.ps1` (PowerShell 5.1 + WPF) → `.exe` con ps2exe → GitHub Actions lo compila,
   prueba la interfaz con capturas y publica. Cada app tiene su `store/` con el MSIX para la Microsoft Store.
 - La versión es `1.0.<número de ejecución de Actions>`.
+- ps2exe se instala de PowerShell Gallery, que a veces falla (27/10/2026: la 1.0.18 daba 404 y otra vez
+  «No repository with the name 'PSGallery'»). Si `Install-Module` falla, los workflows descargan el paquete
+  directamente (`api/v2/package/ps2exe`, y si no la 1.0.17) y lo copian a la carpeta de módulos.
 - Los `.exe` no están firmados: en el README se explica "Más información → Ejecutar de todas formas".
+
+## Armar en la PC del usuario, sin GitHub (pedido del usuario, 03/11/2026: «para todos los chats»)
+
+El usuario quiere que el `.exe`, el `.msix` y el kit de la Store se puedan armar **en su PC**, sin depender de
+GitHub (Actions, Artifacts ni Releases). Aplica a **todas** las apps de Windows; cuando lo pida para otra app,
+copiar el mismo esquema.
+
+- **Plantilla:** `DiagnosticoPC/Armar-Kit-Store.ps1`. Clic derecho → **Ejecutar con PowerShell**. Hace:
+  1. Instala ps2exe si falta (`Install-Module`; si falla, descarga `api/v2/package/ps2exe` y lo copia a
+     `Documentos\WindowsPowerShell\Modules\ps2exe`).
+  2. Instala el Windows SDK si falta `makeappx.exe` (`winget install --id Microsoft.WindowsSDK.10.0.26100`; si no
+     se puede, explica cómo descargarlo).
+  3. Llama a `Crear-EXE.ps1` (normal y `-EdicionStore`) y a `store/Crear-MSIX.ps1`.
+  4. Copia logos, arte, `FICHA-TIENDA.md`, `privacidad.html` y las capturas guardadas en `store/capturas/`.
+  5. Deja todo en `Escritorio\<App>-Store-1.0.N` y abre la carpeta. La versión empieza en 1.0.100 (por encima
+     de las de GitHub) y sube sola en cada uso (`%APPDATA%\<App>-Kit\ultima-version.txt`), porque la Store exige
+     una versión mayor en cada envío. Parámetros: `-Version`, `-Salida`, `-SinPausa` (para CI).
+- Para otra app: copiar el script, cambiar los nombres (`DiagnosticoPC` → la app), guardar sus capturas de la Store en
+  `<app>/store/capturas/` (sacarlas del artifact del kit) y agregar el paso «Probar Armar-Kit-Store.ps1» a su
+  workflow, como en `diagnostico-pc.yml`. Monitor de Red además necesita `-Fabricantes` y `-WebView2` en
+  `Crear-EXE.ps1` (preparar esos archivos con sus scripts `Preparar-*.ps1`).
+- Los `.ps1` van en UTF-8 **con BOM** y CRLF (PowerShell 5.1).
+- Para entregarle archivos sin GitHub desde la nube: descargarlos aquí y mandarlos por el chat (SendUserFile), por
+  ejemplo el `.msix` o el kit en `.zip`. La PC "Casa" (Windows) todavía no se puede conectar a las sesiones en la nube.
+- Hoy solo Diagnóstico PC tiene el script; RespaldoDrivers y Monitor de Red, cuando el usuario lo pida.
